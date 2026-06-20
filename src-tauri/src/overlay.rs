@@ -269,7 +269,7 @@ pub fn create_overlay(app: &AppHandle) {
         Ok(panel) => {
             // Start hidden; only shown while recording / transcribing.
             panel.hide();
-            log::debug!("Recording overlay panel created (hidden)");
+            log::info!("Recording overlay panel created (hidden)");
         }
         Err(e) => {
             log::error!("Failed to create recording overlay panel: {}", e);
@@ -323,6 +323,9 @@ fn show_overlay_state(app: &AppHandle, state: &str) {
         //   * `set_activation_policy(Regular)` (shows a Dock icon, activates app).
         // Any of those re-introduces the focus-steal / Space-switch bug.
         panel.order_front_regardless();
+        log::info!("overlay show: state={state}, panel ordered front");
+    } else {
+        log::warn!("overlay show: panel not found");
     }
 
     // Drive the webview's visual state + fade-in.
@@ -346,14 +349,24 @@ pub fn hide_overlay(app: &AppHandle) {
         let _ = window.emit(EVENT_HIDE, ());
     }
 
-    // Hide the panel after the fade-out completes. Capture the handle and hide
-    // on a short delay; `PanelHandle` is Send so this is fine across threads.
-    if let Ok(panel) = app.get_webview_panel(OVERLAY_LABEL) {
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(300));
-            panel.hide();
+    // Hide the panel after the fade-out completes. `panel.hide()` maps to
+    // AppKit `orderOut:`, which MUST run on the main thread — calling it from a
+    // background thread crashes (`-[NSWindow _doOrderWindow:]` "must only be
+    // used from the main thread"). The handle being `Send` does NOT make it
+    // main-thread-safe. So we wait out the fade on a background thread, then
+    // hop back to the main thread via `run_on_main_thread` to do the orderOut.
+    // Fetch the panel INSIDE the main-thread closure rather than moving the
+    // handle across threads.
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let inner = app_handle.clone();
+        let _ = app_handle.run_on_main_thread(move || {
+            if let Ok(panel) = inner.get_webview_panel(OVERLAY_LABEL) {
+                panel.hide();
+            }
         });
-    }
+    });
 }
 
 #[cfg(not(target_os = "macos"))]

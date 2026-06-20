@@ -50,7 +50,13 @@ const STRINGS = {
 } as const;
 
 const RecordingOverlay: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(false);
+  // Initialize visible: panel-ordering is the source of truth for visibility.
+  // The webview only renders once the panel is ordered front, and a
+  // never-displayed WKWebview can defer JS execution and miss the very first
+  // `show-overlay` event. Starting visible means panel-front => pill shown,
+  // regardless of whether the first event landed. The `hide-overlay` listener
+  // still drives the fade-out before Rust orderOut's the panel.
+  const [isVisible, setIsVisible] = useState(true);
   const [state, setState] = useState<OverlayState>("recording");
   // Per-bar heights, animated. Newest amplitude is pushed in at the center and
   // ripples outward for an organic waveform.
