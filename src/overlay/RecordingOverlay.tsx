@@ -62,9 +62,6 @@ const RecordingOverlay: React.FC = () => {
   // ripples outward for an organic waveform.
   const [bars, setBars] = useState<number[]>(() => Array(BAR_COUNT).fill(0));
   const smoothedRef = useRef(0);
-  // Diagnostic: timestamp of the last `overlay-mic-ack` we emitted back to Rust.
-  // Throttled to ~once per second so we don't flood the event bus at 60/sec.
-  const lastAckRef = useRef(0);
 
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
@@ -80,20 +77,6 @@ const RecordingOverlay: React.FC = () => {
 
     listen<MicLevelPayload>("mic-level", (event) => {
       const payload = event.payload;
-
-      // Diagnostic round-trip: ack back to Rust at most ~once per second so the
-      // backend can confirm the panel webview actually RECEIVES mic-level events.
-      // Grep the Rust log for "overlay-mic-ack received". (Throttled, not 60/sec.)
-      const now = Date.now();
-      if (now - lastAckRef.current >= 1000) {
-        lastAckRef.current = now;
-        const maxLevel = Array.isArray(payload)
-          ? payload.reduce((m, v) => Math.max(m, v), 0)
-          : typeof payload === "number"
-            ? payload
-            : 0;
-        void emit("overlay-mic-ack", maxLevel);
-      }
 
       if (Array.isArray(payload)) {
         // Preferred path: backend sends one level per bar. Fit to BAR_COUNT and
