@@ -11,6 +11,8 @@ import {
   GeneralIcon,
   ModelsIcon,
 } from "@/components/icons";
+import { Onboarding } from "@/components/onboarding/Onboarding";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import type { AppSettings } from "@/bindings";
 import "./App.css";
 
@@ -45,6 +47,25 @@ const SECTIONS: SectionDef[] = [
 ];
 
 function App() {
+  const { ready, needsOnboarding, recheck } = useOnboarding();
+
+  // Avoid a flash of either UI until prerequisites resolve.
+  if (!ready) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-text">
+        <p className="text-sm text-black/50">Loading…</p>
+      </div>
+    );
+  }
+
+  if (needsOnboarding) {
+    return <Onboarding onComplete={() => void recheck()} />;
+  }
+
+  return <SettingsApp />;
+}
+
+function SettingsApp() {
   const { settings, loading, initialize } = useSettingsStore();
   const [active, setActive] = useState<SectionId>("general");
 
