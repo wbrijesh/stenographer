@@ -20,6 +20,11 @@ function formatSize(mb: number): string {
   return `${mb} MB`;
 }
 
+/** Map a backend 0.0–1.0 score to the ScoreBar's 1–5 pip scale. */
+function toPips(score: number): number {
+  return Math.max(1, Math.min(5, Math.round(score * 5)));
+}
+
 export function ModelCard({
   model,
   isSelected,
@@ -68,8 +73,8 @@ export function ModelCard({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1.5">
-        <ScoreBar label="Accuracy" score={model.accuracy_score} />
-        <ScoreBar label="Speed" score={model.speed_score} />
+        <ScoreBar label="Accuracy" score={toPips(model.accuracy_score)} />
+        <ScoreBar label="Speed" score={toPips(model.speed_score)} />
         <span className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-black/45">
           {model.engine_type}
         </span>
@@ -82,9 +87,9 @@ export function ModelCard({
 
       {downloading && (
         <div className="mt-3 space-y-1.5">
-          <ProgressBar percentage={progress?.percentage ?? 0} />
+          <ProgressBar percentage={Math.round(progress?.percentage ?? 0)} />
           <div className="flex items-center justify-between text-[11px] tabular-nums text-black/50">
-            <span>{progress?.percentage ?? 0}%</span>
+            <span>{Math.round(progress?.percentage ?? 0)}%</span>
             <span>
               {speed && speed > 0 ? `${speed.toFixed(1)} MB/s` : "Downloading…"}
             </span>

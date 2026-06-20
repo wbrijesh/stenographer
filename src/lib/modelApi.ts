@@ -1,49 +1,31 @@
 /**
  * Model API abstraction layer.
  *
- * The backend model module (get_available_models / download_model / ...) is being
- * built in PARALLEL and is NOT yet present in `src/bindings.ts`. To keep the Models
- * UI fully functional today, this file provides a MOCK implementation behind a typed
- * interface that mirrors the expected real contract.
+ * Thin wrappers over the generated `commands.*` calls plus the real Tauri
+ * download-lifecycle events. The rest of the app imports ONLY `modelApi` and the
+ * re-exported `ModelInfo` type from this file.
  *
- * SWAP INSTRUCTIONS (for the integration layer / orchestrator):
- *   Once the backend exposes the model commands + events, replace the `modelApi`
- *   object below with thin wrappers over the generated `commands.*` calls and have
- *   `subscribeDownloadProgress` forward the real Tauri `model-download-progress`
- *   event. The rest of the app imports ONLY `modelApi` and the types from this file,
- *   so nothing else needs to change.
- *
- * Expected real bindings (NOT yet in bindings.ts — orchestrator must add):
- *   - commands.getAvailableModels(): Promise<ModelInfo[]>
- *   - commands.downloadModel(id: string): Promise<Result<null, string>>
- *   - commands.cancelDownload(id: string): Promise<Result<null, string>>
- *   - commands.deleteModel(id: string): Promise<Result<null, string>>
- *   - event "model-download-progress": { model_id, downloaded, total, percentage }
- *   - event "model-download-complete": string (model_id)
- *   - event "model-download-failed": { model_id, error }
- *   Selecting the active model already exists: commands.changeSelectedModel(id).
+ * Backend reference (src-tauri/src/managers/model.rs + commands/models.rs):
+ *   - commands.getAvailableModels(): Result<ModelInfo[], string>
+ *   - commands.downloadModel(id): Result<null, string>
+ *   - commands.cancelDownload(id): Result<null, string>
+ *   - commands.deleteModel(id): Result<null, string>
+ *   - event "model-download-progress": { id, downloaded, total, percentage }
+ *   - event "model-download-complete": string (model id)
+ *   - event "model-download-failed": { id, error }
+ *   - event "model-download-cancelled": { id }
  */
 
-export type ModelEngineType = "whisper" | "parakeet" | string;
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { commands, type ModelInfo, type Result } from "@/bindings";
 
-/** Mirrors the expected backend `ModelInfo` contract. */
-export interface ModelInfo {
-  id: string;
-  name: string;
-  description: string;
-  size_mb: number;
-  is_downloaded: boolean;
-  is_downloading: boolean;
-  /** 1-5 relative accuracy score. */
-  accuracy_score: number;
-  /** 1-5 relative speed score. */
-  speed_score: number;
-  is_recommended: boolean;
-  supports_translation: boolean;
-  engine_type: ModelEngineType;
-}
+export type { ModelInfo } from "@/bindings";
 
-/** Payload of the `model-download-progress` event. */
+/**
+ * Normalized download-progress shape used across the frontend. Mirrors the
+ * backend `model-download-progress` payload, which emits the model id under the
+ * `id` field.
+ */
 export interface DownloadProgress {
   model_id: string;
   downloaded: number;
@@ -51,9 +33,24 @@ export interface DownloadProgress {
   percentage: number;
 }
 
+/** Raw backend `model-download-progress` event payload. */
+interface RawDownloadProgress {
+  id: string;
+  downloaded: number;
+  total: number;
+  percentage: number;
+}
+
+/** Raw backend `model-download-failed` / `model-download-cancelled` payload. */
+interface RawDownloadIdError {
+  id: string;
+  error?: string;
+}
+
 export type DownloadProgressHandler = (progress: DownloadProgress) => void;
 export type DownloadCompleteHandler = (modelId: string) => void;
 export type DownloadFailedHandler = (modelId: string, error: string) => void;
+export type DownloadCancelledHandler = (modelId: string) => void;
 
 export interface ModelApi {
   getAvailableModels(): Promise<ModelInfo[]>;
@@ -64,171 +61,92 @@ export interface ModelApi {
   subscribeDownloadProgress(handler: DownloadProgressHandler): () => void;
   subscribeDownloadComplete(handler: DownloadCompleteHandler): () => void;
   subscribeDownloadFailed(handler: DownloadFailedHandler): () => void;
-  /** True when this is the real (backend-backed) implementation. */
-  readonly isMock: boolean;
+  subscribeDownloadCancelled(handler: DownloadCancelledHandler): () => void;
 }
 
-// ---------------------------------------------------------------------------
-// MOCK IMPLEMENTATION
-// ---------------------------------------------------------------------------
+/** Unwrap a tauri-specta `Result` envelope, throwing on the error variant. */
+function unwrap<T>(result: Result<T, string>): T {
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+  return result.data;
+}
 
-const MOCK_MODELS: ModelInfo[] = [
-  {
-    id: "whisper-tiny",
-    name: "Whisper Tiny",
-    description: "Fastest, lowest accuracy. Great for quick notes on any Mac.",
-    size_mb: 75,
-    is_downloaded: true,
-    is_downloading: false,
-    accuracy_score: 2,
-    speed_score: 5,
-    is_recommended: false,
-    supports_translation: true,
-    engine_type: "whisper",
-  },
-  {
-    id: "whisper-base",
-    name: "Whisper Base",
-    description: "Balanced speed and accuracy for everyday dictation.",
-    size_mb: 142,
-    is_downloaded: false,
-    is_downloading: false,
-    accuracy_score: 3,
-    speed_score: 4,
-    is_recommended: true,
-    supports_translation: true,
-    engine_type: "whisper",
-  },
-  {
-    id: "whisper-small",
-    name: "Whisper Small",
-    description: "Higher accuracy, noticeably slower. Good for clean transcripts.",
-    size_mb: 466,
-    is_downloaded: false,
-    is_downloading: false,
-    accuracy_score: 4,
-    speed_score: 3,
-    is_recommended: false,
-    supports_translation: true,
-    engine_type: "whisper",
-  },
-  {
-    id: "whisper-large-v3-turbo",
-    name: "Whisper Large v3 Turbo",
-    description: "Best accuracy with optimized speed. Needs Apple Silicon.",
-    size_mb: 1620,
-    is_downloaded: false,
-    is_downloading: false,
-    accuracy_score: 5,
-    speed_score: 3,
-    is_recommended: false,
-    supports_translation: true,
-    engine_type: "whisper",
-  },
-  {
-    id: "parakeet-v2",
-    name: "Parakeet v2",
-    description: "Ultra-fast English-only model. No translation support.",
-    size_mb: 620,
-    is_downloaded: false,
-    is_downloading: false,
-    accuracy_score: 4,
-    speed_score: 5,
-    is_recommended: false,
-    supports_translation: false,
-    engine_type: "parakeet",
-  },
-];
+/**
+ * Subscribe to a Tauri event. `listen` resolves asynchronously, so we return a
+ * synchronous unsubscribe that tears down the listener once it's registered (or
+ * immediately marks it for teardown if unsubscribed before that).
+ */
+function subscribe<P>(
+  event: string,
+  handler: (payload: P) => void,
+): () => void {
+  let unlisten: UnlistenFn | null = null;
+  let cancelled = false;
 
-type Listener<T> = (arg: T) => void;
+  void listen<P>(event, (e) => handler(e.payload)).then((fn) => {
+    if (cancelled) {
+      fn();
+    } else {
+      unlisten = fn;
+    }
+  });
 
-class MockModelApi implements ModelApi {
-  readonly isMock = true;
+  return () => {
+    cancelled = true;
+    if (unlisten) {
+      unlisten();
+      unlisten = null;
+    }
+  };
+}
 
-  private models: ModelInfo[] = MOCK_MODELS.map((m) => ({ ...m }));
-  private progressListeners = new Set<DownloadProgressHandler>();
-  private completeListeners = new Set<DownloadCompleteHandler>();
-  private failedListeners = new Set<DownloadFailedHandler>();
-  private timers = new Map<string, ReturnType<typeof setInterval>>();
-
+class RealModelApi implements ModelApi {
   async getAvailableModels(): Promise<ModelInfo[]> {
-    // Simulate a small async load.
-    await delay(120);
-    return this.models.map((m) => ({ ...m }));
+    return unwrap(await commands.getAvailableModels());
   }
 
   async downloadModel(modelId: string): Promise<void> {
-    const model = this.models.find((m) => m.id === modelId);
-    if (!model || model.is_downloaded || model.is_downloading) return;
-
-    model.is_downloading = true;
-    const total = model.size_mb * 1024 * 1024;
-    let downloaded = 0;
-    // ~3s download regardless of size, for a snappy mock.
-    const stepBytes = total / 30;
-
-    const timer = setInterval(() => {
-      downloaded = Math.min(total, downloaded + stepBytes);
-      const percentage = Math.round((downloaded / total) * 100);
-      this.emit(this.progressListeners, {
-        model_id: modelId,
-        downloaded,
-        total,
-        percentage,
-      });
-      if (downloaded >= total) {
-        clearInterval(timer);
-        this.timers.delete(modelId);
-        model.is_downloading = false;
-        model.is_downloaded = true;
-        this.emit(this.completeListeners, modelId);
-      }
-    }, 100);
-    this.timers.set(modelId, timer);
+    unwrap(await commands.downloadModel(modelId));
   }
 
   async cancelDownload(modelId: string): Promise<void> {
-    const timer = this.timers.get(modelId);
-    if (timer) {
-      clearInterval(timer);
-      this.timers.delete(modelId);
-    }
-    const model = this.models.find((m) => m.id === modelId);
-    if (model) model.is_downloading = false;
+    unwrap(await commands.cancelDownload(modelId));
   }
 
   async deleteModel(modelId: string): Promise<void> {
-    await delay(120);
-    const model = this.models.find((m) => m.id === modelId);
-    if (model) {
-      model.is_downloaded = false;
-      model.is_downloading = false;
-    }
+    unwrap(await commands.deleteModel(modelId));
   }
 
   subscribeDownloadProgress(handler: DownloadProgressHandler): () => void {
-    this.progressListeners.add(handler);
-    return () => this.progressListeners.delete(handler);
+    return subscribe<RawDownloadProgress>("model-download-progress", (p) => {
+      handler({
+        model_id: p.id,
+        downloaded: p.downloaded,
+        total: p.total,
+        percentage: p.percentage,
+      });
+    });
   }
 
   subscribeDownloadComplete(handler: DownloadCompleteHandler): () => void {
-    this.completeListeners.add(handler);
-    return () => this.completeListeners.delete(handler);
+    return subscribe<string>("model-download-complete", (modelId) => {
+      handler(modelId);
+    });
   }
 
   subscribeDownloadFailed(handler: DownloadFailedHandler): () => void {
-    this.failedListeners.add(handler);
-    return () => this.failedListeners.delete(handler);
+    return subscribe<RawDownloadIdError>("model-download-failed", (p) => {
+      handler(p.id, p.error ?? "Download failed");
+    });
   }
 
-  private emit<T>(listeners: Set<Listener<T>>, arg: T): void {
-    listeners.forEach((l) => l(arg));
+  subscribeDownloadCancelled(handler: DownloadCancelledHandler): () => void {
+    return subscribe<RawDownloadIdError>("model-download-cancelled", (p) => {
+      handler(p.id);
+    });
   }
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** The single instance the app talks to. Swap this for a real impl later. */
-export const modelApi: ModelApi = new MockModelApi();
+/** The single instance the app talks to. */
+export const modelApi: ModelApi = new RealModelApi();

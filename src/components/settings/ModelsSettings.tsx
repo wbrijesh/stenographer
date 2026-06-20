@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import type { AppSettings } from "@/bindings";
 import { useModelStore } from "@/stores/modelStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { modelApi } from "@/lib/modelApi";
 import { ModelCard } from "@/components/models/ModelCard";
 
 interface Props {
@@ -38,11 +37,6 @@ export function ModelsSettings({ settings }: Props) {
         <p className="mt-0.5 text-xs text-black/45">
           Download a model and pick the one to use for transcription.
         </p>
-        {modelApi.isMock && (
-          <p className="mt-1 inline-block rounded bg-amber-400/15 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-            Mock data — backend model commands are not wired yet.
-          </p>
-        )}
       </div>
 
       {error && (

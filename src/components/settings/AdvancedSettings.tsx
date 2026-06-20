@@ -45,9 +45,13 @@ export function AdvancedSettings({ settings }: Props) {
   } = useSettingsStore();
 
   const autoSubmit = settings.auto_submit ?? false;
-  const micOptions = useDeviceOptions(settings.selected_microphone ?? null);
+  const micOptions = useDeviceOptions(
+    settings.selected_microphone ?? null,
+    "input",
+  );
   const outputOptions = useDeviceOptions(
     settings.selected_output_device ?? null,
+    "output",
   );
 
   return (
@@ -142,7 +146,7 @@ export function AdvancedSettings({ settings }: Props) {
 
       <Section
         title="Audio devices"
-        description="Device lists require backend support that is not wired yet — only your saved device and the system default are shown."
+        description="Pick the microphone for recording and the output for feedback sounds."
       >
         <Row
           title="Microphone"

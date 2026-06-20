@@ -137,6 +137,17 @@ export const useModelStore = create<ModelStoreState>()(
             });
           }),
         );
+
+        unsubscribers.push(
+          modelApi.subscribeDownloadCancelled((modelId) => {
+            set((s) => {
+              delete s.downloadProgress[modelId];
+              delete s.downloadStats[modelId];
+              const m = s.models.find((x) => x.id === modelId);
+              if (m) m.is_downloading = false;
+            });
+          }),
+        );
       },
 
       download: async (modelId) => {
