@@ -1,5 +1,18 @@
+// Allow not-yet-wired modules during the phased build.
+#![allow(dead_code)]
+
 mod commands;
 mod settings;
+
+// Phase 1 subsystem modules (bodies implemented by delegated agents).
+mod audio_toolkit;
+mod clipboard;
+mod coordinator;
+mod input;
+mod managers;
+mod overlay;
+mod shortcut;
+mod tray;
 
 use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::MacosLauncher;

@@ -1,3 +1,5 @@
+pub mod models;
+
 use tauri::{AppHandle, Emitter};
 
 use crate::settings::{self, get_settings, write_settings, AppSettings};

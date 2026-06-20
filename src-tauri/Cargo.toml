@@ -45,8 +45,33 @@ specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 
+# --- Phase 1 subsystem dependencies (mirrors Handy's proven set) ---
+anyhow = "1.0.95"
+tokio = { version = "1.43.0", features = ["full"] }
+chrono = "0.4"
+regex = "1"
+# audio capture + VAD
+cpal = "0.16.0"
+rubato = "0.16.2"
+hound = "3.5.1"
+rustfft = "6.4.0"
+vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
+rodio = { git = "https://github.com/cjpais/rodio.git" }
+# transcription + model download
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures-util = "0.3"
+tar = "0.4.44"
+flate2 = "1.0"
+sha2 = "0.10"
+# text injection
+enigo = "0.6.1"
+# trigger / hotkeys
+handy-keys = "0.2.4"
+rdev = { git = "https://github.com/rustdesk-org/rdev" }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+transcribe-rs = { version = "0.3.8", features = ["whisper-cpp", "onnx", "whisper-metal"] }
 
 [dev-dependencies]
 tempfile = "3"
