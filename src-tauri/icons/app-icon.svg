@@ -1,0 +1,70 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Squircle background gradient: deep indigo (TL) -> violet (BR) -->
+    <linearGradient id="bg" x1="160" y1="120" x2="864" y2="904" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+
+    <!-- Subtle top highlight for depth -->
+    <linearGradient id="sheen" x1="512" y1="100" x2="512" y2="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Soft drop shadow under the glyph -->
+    <filter id="glyphShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#1E1B4B" flood-opacity="0.30"/>
+    </filter>
+
+    <!-- Rounded-square clip for the sheen -->
+    <clipPath id="squircleClip">
+      <rect x="100" y="100" width="824" height="824" rx="200" ry="200"/>
+    </clipPath>
+  </defs>
+
+  <!-- Squircle body (transparent outside) -->
+  <rect x="100" y="100" width="824" height="824" rx="200" ry="200" fill="url(#bg)"/>
+
+  <!-- Top sheen, clipped to the squircle -->
+  <g clip-path="url(#squircleClip)">
+    <rect x="100" y="100" width="824" height="460" fill="url(#sheen)"/>
+  </g>
+
+  <!-- Glyph group: white microphone + sound arcs, with soft shadow -->
+  <g filter="url(#glyphShadow)" fill="none">
+    <!-- Sound-wave arcs flanking the mic -->
+    <g stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" opacity="0.92">
+      <!-- left inner -->
+      <path d="M404 446 a118 118 0 0 0 0 132"/>
+      <!-- left outer -->
+      <path d="M360 410 a182 182 0 0 0 0 204" opacity="0.55"/>
+      <!-- right inner -->
+      <path d="M620 446 a118 118 0 0 1 0 132"/>
+      <!-- right outer -->
+      <path d="M664 410 a182 182 0 0 1 0 204" opacity="0.55"/>
+    </g>
+
+    <!-- Mic capsule head -->
+    <rect x="452" y="300" width="120" height="248" rx="60" ry="60" fill="#FFFFFF"/>
+
+    <!-- Subtle grille lines on capsule -->
+    <g stroke="#7C3AED" stroke-width="12" stroke-linecap="round" opacity="0.22">
+      <line x1="478" y1="372" x2="546" y2="372"/>
+      <line x1="478" y1="412" x2="546" y2="412"/>
+      <line x1="478" y1="452" x2="546" y2="452"/>
+    </g>
+
+    <!-- U-shaped stand bracket -->
+    <path d="M404 488 a108 108 0 0 0 216 0"
+          stroke="#FFFFFF" stroke-width="34" stroke-linecap="round"/>
+
+    <!-- Vertical stem -->
+    <line x1="512" y1="596" x2="512" y2="676"
+          stroke="#FFFFFF" stroke-width="34" stroke-linecap="round"/>
+
+    <!-- Base -->
+    <line x1="430" y1="700" x2="594" y2="700"
+          stroke="#FFFFFF" stroke-width="34" stroke-linecap="round"/>
+  </g>
+</svg>
