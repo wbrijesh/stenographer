@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "store:default",
+    "process:default",
+    "dialog:default",
+    "os:default",
+    "clipboard-manager:default",
+    "autostart:default",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-unregister-all",
+    "macos-permissions:default",
+    "fs:read-files",
+    "fs:allow-resource-read-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$APPDATA" }, { "path": "$APPDATA/**/*" }]
+    }
+  ]
+}
