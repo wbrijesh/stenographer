@@ -81,3 +81,10 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "unwind"
+
+# Disable stripping for host proc-macro dylibs and build scripts. On this macOS
+# toolchain, stripping proc-macro dylibs corrupts them ("mis-aligned LINKEDIT
+# string pool"), causing dependent crates to fail to load them at compile time.
+# The final app binary is still stripped via [profile.release] above.
+[profile.release.build-override]
+strip = false
