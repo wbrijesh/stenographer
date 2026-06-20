@@ -54,6 +54,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::change_autostart_enabled,
         commands::change_show_tray_icon,
         commands::show_main_window,
+        commands::check_fn_key_behavior,
         // --- audio devices / lifecycle / permissions ---
         commands::audio::get_available_microphones,
         commands::audio::get_available_output_devices,
@@ -149,14 +150,49 @@ pub fn run() {
             // Create the main settings window programmatically (hidden initially)
             // rather than declaratively in tauri.conf.json. This mirrors Handy and
             // keeps `app.windows` empty in the config.
-            tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
-                .title("Stenographer")
-                .inner_size(680.0, 570.0)
-                .min_inner_size(680.0, 570.0)
-                .resizable(true)
-                .maximizable(false)
-                .visible(false)
-                .build()?;
+            //
+            // Closing the settings window should not quit the app (the tray keeps
+            // it alive, menu-bar style). Instead we hide the window and, on macOS
+            // when started hidden, restore the Accessory policy so the Dock icon
+            // disappears again (`show_main_window` flips it to Regular on open).
+            let close_handle = app_handle.clone();
+            #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+            let close_start_hidden = settings.start_hidden;
+            let main_window = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("/".into()),
+            )
+            .title("Stenographer")
+            .inner_size(680.0, 570.0)
+            .min_inner_size(680.0, 570.0)
+            .resizable(true)
+            .maximizable(false)
+            .visible(false)
+            .build()?;
+
+            main_window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    if let Some(main_window) = close_handle.get_webview_window("main") {
+                        let _ = main_window.hide();
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    {
+                        if close_start_hidden {
+                            if let Err(e) = close_handle
+                                .set_activation_policy(tauri::ActivationPolicy::Accessory)
+                            {
+                                log::error!(
+                                    "Failed to set activation policy to Accessory: {}",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+            });
 
             // macOS: when starting hidden, run as an Accessory app (no Dock icon).
             #[cfg(target_os = "macos")]

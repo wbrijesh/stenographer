@@ -238,6 +238,22 @@ async showMainWindow() : Promise<Result<null, string>> {
 }
 },
 /**
+ * Detect the macOS "Press 🌐 to…" setting so the frontend can show a one-time
+ * nudge when Fn won't work as a push-to-talk trigger.
+ * 
+ * macOS stores this as `AppleFnUsageType` in the `com.apple.HIToolbox` defaults
+ * domain. `0` means "Do Nothing" (the value Stenographer needs); any non-zero
+ * value (Change Input Source, Show Emoji & Symbols, Start Dictation, …) will
+ * intercept the Fn key before our CGEventTap sees it.
+ * 
+ * Resilience: if the key is missing or unparseable we return `ok: true,
+ * current: -1` so the app does not nag users whose setup we can't read.
+ * Non-macOS always returns `ok: true`.
+ */
+async checkFnKeyBehavior() : Promise<FnKeyBehavior> {
+    return await TAURI_INVOKE("check_fn_key_behavior");
+},
+/**
  * List available input (microphone) devices.
  */
 async getAvailableMicrophones() : Promise<DeviceInfo[]> {
@@ -422,6 +438,26 @@ export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
  */
 export type DeviceInfo = { name: string; is_default: boolean }
 export type EngineType = "Whisper" | "Parakeet"
+/**
+ * Result of inspecting the macOS "Press 🌐 to…" (Globe/Fn key) behavior.
+ * 
+ * `ok` is `true` when Fn is safe to use as a push-to-talk trigger — i.e. the
+ * system setting is "Do Nothing" (`current == 0`) OR the key could not be read
+ * (we fail open so the UI never nags wrongly). `current` is the raw
+ * `AppleFnUsageType` value (`0` = Do Nothing, `1` = Change Input Source,
+ * `2` = Show Emoji & Symbols on older macOS, `3` = Show Emoji & Symbols /
+ * "Start Dictation"-style behaviors on newer macOS, etc.); `-1` means the key
+ * was absent or unreadable.
+ */
+export type FnKeyBehavior = { 
+/**
+ * `true` if Fn is safe to use for push-to-talk (setting is "Do Nothing" or unknown).
+ */
+ok: boolean; 
+/**
+ * Raw `AppleFnUsageType` value; `-1` if absent/unreadable.
+ */
+current: number }
 export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; sha256: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; 
 /**
  * 0.0 to 1.0, higher is more accurate

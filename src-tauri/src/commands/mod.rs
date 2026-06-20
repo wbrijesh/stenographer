@@ -294,3 +294,76 @@ pub fn show_main_window(app: AppHandle) -> Result<(), String> {
     crate::show_main_window(&app);
     Ok(())
 }
+
+/// Result of inspecting the macOS "Press 🌐 to…" (Globe/Fn key) behavior.
+///
+/// `ok` is `true` when Fn is safe to use as a push-to-talk trigger — i.e. the
+/// system setting is "Do Nothing" (`current == 0`) OR the key could not be read
+/// (we fail open so the UI never nags wrongly). `current` is the raw
+/// `AppleFnUsageType` value (`0` = Do Nothing, `1` = Change Input Source,
+/// `2` = Show Emoji & Symbols on older macOS, `3` = Show Emoji & Symbols /
+/// "Start Dictation"-style behaviors on newer macOS, etc.); `-1` means the key
+/// was absent or unreadable.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct FnKeyBehavior {
+    /// `true` if Fn is safe to use for push-to-talk (setting is "Do Nothing" or unknown).
+    pub ok: bool,
+    /// Raw `AppleFnUsageType` value; `-1` if absent/unreadable.
+    pub current: i64,
+}
+
+/// Detect the macOS "Press 🌐 to…" setting so the frontend can show a one-time
+/// nudge when Fn won't work as a push-to-talk trigger.
+///
+/// macOS stores this as `AppleFnUsageType` in the `com.apple.HIToolbox` defaults
+/// domain. `0` means "Do Nothing" (the value Stenographer needs); any non-zero
+/// value (Change Input Source, Show Emoji & Symbols, Start Dictation, …) will
+/// intercept the Fn key before our CGEventTap sees it.
+///
+/// Resilience: if the key is missing or unparseable we return `ok: true,
+/// current: -1` so the app does not nag users whose setup we can't read.
+/// Non-macOS always returns `ok: true`.
+#[tauri::command]
+#[specta::specta]
+pub fn check_fn_key_behavior() -> FnKeyBehavior {
+    #[cfg(target_os = "macos")]
+    {
+        match read_apple_fn_usage_type() {
+            Some(value) => FnKeyBehavior {
+                ok: value == 0,
+                current: value,
+            },
+            // Key absent / unreadable → fail open (don't nag).
+            None => FnKeyBehavior {
+                ok: true,
+                current: -1,
+            },
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        FnKeyBehavior {
+            ok: true,
+            current: -1,
+        }
+    }
+}
+
+/// Reads `AppleFnUsageType` from the `com.apple.HIToolbox` defaults domain via
+/// the `defaults` CLI. Returns `None` if the command fails, the key is absent,
+/// or the value can't be parsed as an integer.
+#[cfg(target_os = "macos")]
+fn read_apple_fn_usage_type() -> Option<i64> {
+    let output = std::process::Command::new("defaults")
+        .args(["read", "com.apple.HIToolbox", "AppleFnUsageType"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    text.trim().parse::<i64>().ok()
+}

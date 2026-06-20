@@ -35,9 +35,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 use tauri::WebviewUrl;
 
 #[cfg(target_os = "macos")]
-use tauri_nspanel::{
-    tauri_panel, CollectionBehavior, ManagerExt, Panel, PanelBuilder, PanelLevel,
-};
+use tauri_nspanel::{tauri_panel, CollectionBehavior, ManagerExt, PanelBuilder, PanelLevel};
 
 // --- UI / layout constants ---------------------------------------------------
 
@@ -286,16 +284,26 @@ fn show_overlay_state(app: &AppHandle, state: &str) {
     reposition_overlay(app);
 
     if let Ok(panel) = app.get_webview_panel(OVERLAY_LABEL) {
-        // Aerospace re-homing: re-apply the collection behavior on every show.
-        // Combined with `moveToActiveSpace`, this rebinds the panel to whatever
-        // Space is currently active (Aerospace may have switched Spaces since the
-        // panel was last shown). Must run before ordering it front.
+        // Aerospace re-homing (HARD requirement #2 + #3): re-apply the collection
+        // behavior on EVERY show. Combined with `moveToActiveSpace`, this rebinds
+        // the panel to whatever Space is currently active — Aerospace may have
+        // switched Spaces since the panel was last shown, and a panel left bound
+        // to its launch Space is the exact root cause of PLAN.md risk #2 (the app
+        // snapping back to the workspace it launched on). This MUST run before
+        // ordering the panel front.
         panel.set_collection_behavior(overlay_collection_behavior().value());
 
-        // Surface it WITHOUT stealing focus or activating the app. `show()` is
-        // implemented as `orderFrontRegardless:` in tauri-nspanel; we call the
-        // explicit method to make the intent unmistakable. NEVER use
-        // `make_key_and_order_front` / `show_and_make_key` here.
+        // Surface it WITHOUT stealing focus or activating the app (HARD
+        // requirement #3 + #4 + #5). `order_front_regardless()` maps to
+        // `orderFrontRegardless:`, which brings the *panel* forward on the active
+        // Space without making it key and without raising the owning application.
+        //
+        // Do NOT replace this with any of:
+        //   * `make_key_and_order_front` / `show_and_make_key` (makes the panel
+        //     key → steals focus from the user's editor),
+        //   * `app.activate()` / `set_focus()` (raises the app → Space switch),
+        //   * `set_activation_policy(Regular)` (shows a Dock icon, activates app).
+        // Any of those re-introduces the focus-steal / Space-switch bug.
         panel.order_front_regardless();
     }
 
