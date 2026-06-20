@@ -8,6 +8,7 @@
 
 #![allow(dead_code)]
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -133,10 +134,29 @@ fn create_audio_recorder(
 /// Emit the per-bucket microphone spectrum levels (each in 0..1) to the
 /// frontend as the `mic-level` event. Mirrors Handy's `overlay::emit_levels`.
 fn emit_levels(app_handle: &AppHandle, levels: &Vec<f32>) {
+    // Broadcast to all webviews (main window picks this up).
     let _ = app_handle.emit("mic-level", levels);
 
+    // Direct emit to the overlay's webview window handle.
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
         let _ = overlay_window.emit("mic-level", levels);
+    }
+
+    // Likely fix: target the overlay panel webview explicitly via Tauri 2's
+    // targeted emit. A `&str` is accepted as a labeled `EventTarget`, which
+    // reliably reaches the non-activating NSPanel webview even when the broadcast
+    // `emit` / window handle path doesn't (e.g. panel webview registered as a
+    // separate event target).
+    let _ = app_handle.emit_to("recording_overlay", "mic-level", levels);
+
+    // Diagnostic: throttled log (every 30th call) confirming Rust is emitting
+    // non-zero levels during recording. Grep for "mic-level emit #".
+    static EMIT_COUNT: AtomicU64 = AtomicU64::new(0);
+    let n = EMIT_COUNT.fetch_add(1, Ordering::Relaxed);
+    if n % 30 == 0 {
+        let len = levels.len();
+        let max = levels.iter().copied().fold(0.0_f32, f32::max);
+        log::info!("mic-level emit #{n}: {len} buckets, max={max:.3}");
     }
 }
 

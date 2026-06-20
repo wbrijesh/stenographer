@@ -158,6 +158,14 @@ pub fn install_event_listeners(app: &AppHandle) {
         }
     });
 
+    // Diagnostic: round-trip ack from the overlay webview. If we see
+    // "overlay-mic-ack received" in the log, the panel webview IS receiving
+    // mic-level events (so any flat waveform is a render bug); if Rust logs
+    // "mic-level emit #" but no ack appears, the panel webview isn't receiving.
+    app.listen_any("overlay-mic-ack", move |ev| {
+        log::info!("overlay-mic-ack received: {}", ev.payload())
+    });
+
     // Tray model select → switch active model + reload.
     let model_app = app.clone();
     app.listen_any(tray::TRAY_MODEL_SELECT_EVENT, move |event| {

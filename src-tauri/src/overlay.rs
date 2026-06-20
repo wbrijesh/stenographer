@@ -328,10 +328,12 @@ fn show_overlay_state(app: &AppHandle, state: &str) {
         log::warn!("overlay show: panel not found");
     }
 
-    // Drive the webview's visual state + fade-in.
+    // Drive the webview's visual state + fade-in. Emit via the window handle AND
+    // the labeled target so the state change reliably reaches the panel webview.
     if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
         let _ = window.emit(EVENT_SHOW, state);
     }
+    let _ = app.emit_to(OVERLAY_LABEL, EVENT_SHOW, state);
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -339,15 +341,18 @@ fn show_overlay_state(app: &AppHandle, state: &str) {
     if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
         let _ = window.emit(EVENT_SHOW, state);
     }
+    let _ = app.emit_to(OVERLAY_LABEL, EVENT_SHOW, state);
 }
 
 /// Hides the overlay (fade-out, then `orderOut:`).
 #[cfg(target_os = "macos")]
 pub fn hide_overlay(app: &AppHandle) {
-    // Ask the webview to fade out first.
+    // Ask the webview to fade out first. Emit via the window handle AND the
+    // labeled target so the fade-out reliably reaches the panel webview.
     if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
         let _ = window.emit(EVENT_HIDE, ());
     }
+    let _ = app.emit_to(OVERLAY_LABEL, EVENT_HIDE, ());
 
     // Hide the panel after the fade-out completes. `panel.hide()` maps to
     // AppKit `orderOut:`, which MUST run on the main thread — calling it from a
@@ -374,6 +379,7 @@ pub fn hide_overlay(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
         let _ = window.emit(EVENT_HIDE, ());
     }
+    let _ = app.emit_to(OVERLAY_LABEL, EVENT_HIDE, ());
 }
 
 /// Recomputes and applies the overlay position (monitor under the cursor,
