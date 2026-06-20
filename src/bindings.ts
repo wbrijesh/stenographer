@@ -40,6 +40,193 @@ async changeOverlayEnabled(overlayEnabled: boolean) : Promise<Result<null, strin
 }
 },
 /**
+ * Validate + persist + emit the trigger-mode-enabled toggle.
+ */
+async changeTriggerModeEnabled(triggerModeEnabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_trigger_mode_enabled", { triggerModeEnabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the hold/tap threshold.
+ */
+async changeHoldTapThresholdMs(holdTapThresholdMs: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_hold_tap_threshold_ms", { holdTapThresholdMs }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the selected microphone device.
+ */
+async setSelectedMicrophone(selectedMicrophone: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_selected_microphone", { selectedMicrophone }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the selected output device.
+ */
+async setSelectedOutputDevice(selectedOutputDevice: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_selected_output_device", { selectedOutputDevice }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the audio-feedback toggle.
+ */
+async changeAudioFeedback(audioFeedback: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_audio_feedback", { audioFeedback }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the audio-feedback volume.
+ */
+async changeAudioFeedbackVolume(audioFeedbackVolume: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_audio_feedback_volume", { audioFeedbackVolume }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the mute-while-recording toggle.
+ */
+async changeMuteWhileRecording(muteWhileRecording: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_mute_while_recording", { muteWhileRecording }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the selected model.
+ */
+async changeSelectedModel(selectedModel: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_selected_model", { selectedModel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the selected language.
+ */
+async changeSelectedLanguage(selectedLanguage: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_selected_language", { selectedLanguage }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the translate-to-english toggle.
+ */
+async changeTranslateToEnglish(translateToEnglish: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_translate_to_english", { translateToEnglish }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the model-unload timeout.
+ */
+async changeModelUnloadTimeout(modelUnloadTimeout: ModelUnloadTimeout) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_model_unload_timeout", { modelUnloadTimeout }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the auto-submit toggle.
+ */
+async changeAutoSubmit(autoSubmit: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_auto_submit", { autoSubmit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the auto-submit key.
+ */
+async changeAutoSubmitKey(autoSubmitKey: AutoSubmitKey) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_auto_submit_key", { autoSubmitKey }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the append-trailing-space toggle.
+ */
+async changeAppendTrailingSpace(appendTrailingSpace: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_append_trailing_space", { appendTrailingSpace }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the start-hidden toggle.
+ */
+async changeStartHidden(startHidden: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_start_hidden", { startHidden }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the autostart-enabled toggle.
+ */
+async changeAutostartEnabled(autostartEnabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_autostart_enabled", { autostartEnabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Validate + persist + emit the show-tray-icon toggle.
+ */
+async changeShowTrayIcon(showTrayIcon: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_show_tray_icon", { showTrayIcon }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Show (and focus) the main settings window, restoring the Dock icon on macOS.
  */
 async showMainWindow() : Promise<Result<null, string>> {
