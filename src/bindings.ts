@@ -236,6 +236,165 @@ async showMainWindow() : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * List available input (microphone) devices.
+ */
+async getAvailableMicrophones() : Promise<DeviceInfo[]> {
+    return await TAURI_INVOKE("get_available_microphones");
+},
+/**
+ * List available output (speaker) devices.
+ */
+async getAvailableOutputDevices() : Promise<DeviceInfo[]> {
+    return await TAURI_INVOKE("get_available_output_devices");
+},
+/**
+ * Whether a recording is currently in progress.
+ */
+async isRecording() : Promise<boolean> {
+    return await TAURI_INVOKE("is_recording");
+},
+/**
+ * Play the start feedback sound so the user can preview volume / output device.
+ */
+async playTestSound() : Promise<void> {
+    await TAURI_INVOKE("play_test_sound");
+},
+/**
+ * Initialize the global Enigo instance (must run on the main thread). Fails if
+ * Accessibility permission has not been granted. Idempotent.
+ */
+async initializeEnigo() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("initialize_enigo") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Start the Fn-key listener and store its handle in managed state. Fails if
+ * Accessibility permission has not been granted (the CGEventTap can't install).
+ * Idempotent: a no-op if the listener is already running.
+ */
+async initializeShortcuts() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("initialize_shortcuts") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Cancel any in-flight recording/transcription by submitting `Cancel` to the
+ * coordinator.
+ */
+async cancelOperation() : Promise<void> {
+    await TAURI_INVOKE("cancel_operation");
+},
+/**
+ * Full catalog with `is_downloaded` / `is_downloading` reflecting disk state.
+ */
+async getAvailableModels() : Promise<Result<ModelInfo[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_available_models") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stream a model download. Emits `model-download-progress` while running and
+ * `model-download-complete` / `model-download-failed` on settle.
+ */
+async downloadModel(modelId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_model", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Request cancellation of an in-flight download. The partial file is kept for
+ * later resume. Emits `model-download-cancelled`.
+ */
+async cancelDownload(modelId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("cancel_download", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Delete a downloaded model. If it's the active model, unload it and clear the
+ * persisted selection first.
+ */
+async deleteModel(modelId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_model", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Set the active model and eagerly load it (unless the unload timeout is
+ * `Immediately`, in which case it loads on the next transcription).
+ */
+async setActiveModel(modelId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_active_model", { modelId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * The persisted active model id (empty string when none selected).
+ */
+async getCurrentModel() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_current_model") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Whether a model load is currently in progress (no model loaded yet).
+ */
+async isModelLoading() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_model_loading") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Persist a new model-unload timeout (idle watcher picks it up next tick).
+ */
+async setModelUnloadTimeout(timeout: ModelUnloadTimeout) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_model_unload_timeout", { timeout }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Manually unload the loaded model (frees memory until next transcription).
+ */
+async unloadModelManually() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unload_model_manually") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -258,6 +417,36 @@ async showMainWindow() : Promise<Result<null, string>> {
  */
 export type AppSettings = { trigger_mode_enabled?: boolean; hold_tap_threshold_ms?: number; selected_microphone?: string | null; selected_output_device?: string | null; audio_feedback?: boolean; audio_feedback_volume?: number; mute_while_recording?: boolean; selected_model?: string | null; selected_language?: string; translate_to_english?: boolean; model_unload_timeout?: ModelUnloadTimeout; paste_delay_ms?: number; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; append_trailing_space?: boolean; overlay_enabled?: boolean; start_hidden?: boolean; autostart_enabled?: boolean; show_tray_icon?: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
+/**
+ * Device descriptor returned to the frontend.
+ */
+export type DeviceInfo = { name: string; is_default: boolean }
+export type EngineType = "Whisper" | "Parakeet"
+export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; sha256: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; 
+/**
+ * 0.0 to 1.0, higher is more accurate
+ */
+accuracy_score: number; 
+/**
+ * 0.0 to 1.0, higher is faster
+ */
+speed_score: number; 
+/**
+ * Whether the model supports translating to English
+ */
+supports_translation: boolean; 
+/**
+ * Whether this is the recommended model for new users
+ */
+is_recommended: boolean; 
+/**
+ * Languages this model can transcribe (BCP-47 codes)
+ */
+supported_languages: string[]; 
+/**
+ * Whether the user can explicitly pick a language
+ */
+supports_language_selection: boolean }
 export type ModelUnloadTimeout = "never" | "immediately" | { seconds: number } | { minutes: number }
 
 /** tauri-specta globals **/

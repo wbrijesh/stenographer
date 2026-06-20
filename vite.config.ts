@@ -17,6 +17,16 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Multi-page build: the main settings UI and the standalone overlay window.
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        overlay: resolve(__dirname, "src/overlay/index.html"),
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent vite from obscuring rust errors

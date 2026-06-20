@@ -8,18 +8,40 @@ import React, { useEffect, useRef, useState } from "react";
  * event-driven from the Rust side:
  *   - `show-overlay`  (payload: "recording" | "transcribing") -> show + set state
  *   - `hide-overlay`  -> fade out
- *   - `mic-level`     (payload: f32 in 0..1) -> drive the waveform amplitude
+ *   - `mic-level`     (payload: number[] of bar levels in 0..1, one per bar)
+ *                     -> drive the waveform. A bare `number` is also accepted
+ *                        (treated as a single center amplitude that ripples out)
+ *                        for backwards compatibility / robustness.
  *
  * The cancel button emits `overlay-cancel` for the backend to handle; the
  * overlay does not import the typed bindings so it stays self-contained.
  */
 
 type OverlayState = "recording" | "transcribing";
+type MicLevelPayload = number | number[];
 
 // Number of waveform bars in the pill.
 const BAR_COUNT = 9;
 // Smoothing factor for incoming amplitude (0..1; higher = snappier).
 const SMOOTHING = 0.35;
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+/**
+ * Resample an arbitrary-length array of bar levels onto exactly `BAR_COUNT`
+ * bars by nearest-neighbour sampling. Keeps rendering robust regardless of how
+ * many buckets the backend sends.
+ */
+function fitToBars(levels: number[]): number[] {
+  if (levels.length === 0) return Array(BAR_COUNT).fill(0);
+  if (levels.length === BAR_COUNT) return levels.map(clamp01);
+  const out: number[] = new Array(BAR_COUNT);
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const src = Math.floor((i * levels.length) / BAR_COUNT);
+    out[i] = clamp01(levels[src] ?? 0);
+  }
+  return out;
+}
 
 // Centralized UI strings.
 const STRINGS = {
@@ -47,19 +69,30 @@ const RecordingOverlay: React.FC = () => {
       setIsVisible(false);
     }).then((u) => unlisteners.push(u));
 
-    listen<number>("mic-level", (event) => {
-      const raw = typeof event.payload === "number" ? event.payload : 0;
-      const clamped = Math.max(0, Math.min(1, raw));
-      // Exponential smoothing to reduce jitter.
+    listen<MicLevelPayload>("mic-level", (event) => {
+      const payload = event.payload;
+
+      if (Array.isArray(payload)) {
+        // Preferred path: backend sends one level per bar. Fit to BAR_COUNT and
+        // exponentially smooth each bar to reduce jitter.
+        const target = fitToBars(payload);
+        setBars((prev) =>
+          target.map(
+            (t, i) => (prev[i] ?? 0) * (1 - SMOOTHING) + t * SMOOTHING,
+          ),
+        );
+        return;
+      }
+
+      // Fallback: a single amplitude. Ripple it out from the center.
+      const raw = typeof payload === "number" ? payload : 0;
       smoothedRef.current =
-        smoothedRef.current * (1 - SMOOTHING) + clamped * SMOOTHING;
+        smoothedRef.current * (1 - SMOOTHING) + clamp01(raw) * SMOOTHING;
       const level = smoothedRef.current;
 
-      // Shift bars outward from the center for a symmetric ripple.
       setBars((prev) => {
         const mid = Math.floor(BAR_COUNT / 2);
         const next = [...prev];
-        // ripple: each bar inherits its inner neighbor, center gets new level.
         for (let i = 0; i < mid; i++) {
           next[i] = prev[i + 1];
           next[BAR_COUNT - 1 - i] = prev[BAR_COUNT - 2 - i];

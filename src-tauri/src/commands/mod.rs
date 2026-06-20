@@ -1,7 +1,11 @@
+pub mod audio;
 pub mod models;
 
-use tauri::{AppHandle, Emitter};
+use std::sync::Arc;
 
+use tauri::{AppHandle, Emitter, State};
+
+use crate::managers::audio::AudioRecordingManager;
 use crate::settings::{
     self, get_settings, write_settings, AppSettings, AutoSubmitKey, ModelUnloadTimeout,
 };
@@ -79,11 +83,16 @@ pub fn change_hold_tap_threshold_ms(
 #[specta::specta]
 pub fn set_selected_microphone(
     app: AppHandle,
+    audio: State<'_, Arc<AudioRecordingManager>>,
     selected_microphone: Option<String>,
 ) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.selected_microphone = selected_microphone;
     write_settings(&app, &settings);
+    // Restart the (open) stream so the new device takes effect immediately.
+    if let Err(e) = audio.update_selected_device() {
+        log::warn!("Failed to switch microphone device: {e}");
+    }
     app.emit("settings-changed", &settings)
         .map_err(|e| e.to_string())?;
     Ok(())

@@ -5,14 +5,18 @@ mod commands;
 mod settings;
 
 // Phase 1 subsystem modules (bodies implemented by delegated agents).
+mod audio_feedback;
 mod audio_toolkit;
 mod clipboard;
 mod coordinator;
 mod input;
 mod managers;
 mod overlay;
+mod pipeline;
 mod shortcut;
 mod tray;
+
+use std::sync::Arc;
 
 use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::MacosLauncher;
@@ -50,6 +54,24 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::change_autostart_enabled,
         commands::change_show_tray_icon,
         commands::show_main_window,
+        // --- audio devices / lifecycle / permissions ---
+        commands::audio::get_available_microphones,
+        commands::audio::get_available_output_devices,
+        commands::audio::is_recording,
+        commands::audio::play_test_sound,
+        commands::audio::initialize_enigo,
+        commands::audio::initialize_shortcuts,
+        commands::audio::cancel_operation,
+        // --- model management ---
+        commands::models::get_available_models,
+        commands::models::download_model,
+        commands::models::cancel_download,
+        commands::models::delete_model,
+        commands::models::set_active_model,
+        commands::models::get_current_model,
+        commands::models::is_model_loading,
+        commands::models::set_model_unload_timeout,
+        commands::models::unload_model_manually,
     ])
 }
 
@@ -147,6 +169,102 @@ pub fn run() {
             // Show the window immediately unless configured to start hidden.
             if !settings.start_hidden {
                 show_main_window(&app_handle);
+            }
+
+            // --- Managed state: managers + coordinator -----------------------
+            //
+            // Construction order matters: the TranscriptionManager needs the
+            // ModelManager Arc. ModelManager / TranscriptionManager return
+            // Result; if either fails we log and bail out of setup (the app is
+            // unusable without them).
+            use crate::managers::audio::AudioRecordingManager;
+            use crate::managers::model::ModelManager;
+            use crate::managers::transcription::TranscriptionManager;
+
+            let model_manager = Arc::new(ModelManager::new(&app_handle)?);
+            let transcription_manager =
+                Arc::new(TranscriptionManager::new(&app_handle, model_manager.clone())?);
+            let audio = Arc::new(AudioRecordingManager::new(app_handle.clone()));
+            audio.preload_vad();
+            let coordinator = Arc::new(crate::coordinator::Coordinator::new(app_handle.clone()));
+
+            app.manage(model_manager.clone());
+            app.manage(transcription_manager.clone());
+            app.manage(audio.clone());
+            app.manage(coordinator.clone());
+            app.manage(crate::commands::audio::FnListenerState::default());
+
+            // --- Overlay panel (hidden until recording) ----------------------
+            crate::overlay::create_overlay(&app_handle);
+
+            // --- Tray icon + model submenu -----------------------------------
+            if settings.show_tray_icon {
+                match crate::tray::create_tray(&app_handle) {
+                    Ok(_) => {
+                        let tray_models: Vec<crate::tray::TrayModel> = model_manager
+                            .get_available_models()
+                            .into_iter()
+                            .filter(|m| m.is_downloaded)
+                            .map(|m| crate::tray::TrayModel {
+                                id: m.id,
+                                name: m.name,
+                            })
+                            .collect();
+                        crate::tray::set_models(tray_models);
+                        crate::tray::set_active_model(settings.selected_model.clone());
+                        crate::tray::refresh_menu(&app_handle);
+                    }
+                    Err(e) => log::error!("Failed to create tray icon: {e}"),
+                }
+            }
+
+            // --- Wire the real pipeline + control-event listeners ------------
+            coordinator.set_actions(crate::pipeline::build_pipeline_actions(app_handle.clone()));
+            crate::pipeline::install_event_listeners(&app_handle);
+
+            // --- Accessibility-gated startup ---------------------------------
+            //
+            // If Accessibility is ALREADY granted, initialize enigo (main
+            // thread) and start the Fn listener now, storing its handle in
+            // managed state. If not granted, do nothing — the onboarding flow
+            // (`initialize_enigo` / `initialize_shortcuts` commands) starts them
+            // later. We never trigger a permission prompt here.
+            #[cfg(target_os = "macos")]
+            {
+                let accessibility_granted = tauri::async_runtime::block_on(
+                    tauri_plugin_macos_permissions::check_accessibility_permission(),
+                );
+
+                if accessibility_granted {
+                    // Enigo construction must run on the main thread.
+                    let enigo_app = app_handle.clone();
+                    let _ = app_handle.run_on_main_thread(move || {
+                        if let Err(e) = crate::input::init_enigo(enigo_app) {
+                            log::error!("init_enigo failed despite Accessibility granted: {e}");
+                        }
+                    });
+
+                    match crate::shortcut::start_fn_listener(
+                        app_handle.clone(),
+                        coordinator.clone(),
+                    ) {
+                        Ok(handle) => {
+                            if let Some(state) =
+                                app_handle.try_state::<crate::commands::audio::FnListenerState>()
+                            {
+                                if let Ok(mut guard) = state.0.lock() {
+                                    *guard = Some(handle);
+                                }
+                            }
+                            log::info!("Fn listener started at launch (Accessibility granted)");
+                        }
+                        Err(e) => log::error!("Failed to start Fn listener at launch: {e}"),
+                    }
+                } else {
+                    log::info!(
+                        "Accessibility not granted; deferring enigo/Fn listener to onboarding"
+                    );
+                }
             }
 
             Ok(())
