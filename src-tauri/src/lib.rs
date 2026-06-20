@@ -73,6 +73,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::models::is_model_loading,
         commands::models::set_model_unload_timeout,
         commands::models::unload_model_manually,
+        // --- macOS permission wrappers (onboarding UI) ---
+        commands::permissions::check_accessibility_permission,
+        commands::permissions::request_accessibility_permission,
+        commands::permissions::check_microphone_permission,
+        commands::permissions::request_microphone_permission,
     ])
 }
 
@@ -146,6 +151,24 @@ pub fn run() {
 
             // Load (or create) settings before any window logic.
             let settings = load_or_create_app_settings(&app_handle);
+
+            // Reconcile OS autostart (launch agent) with the persisted setting,
+            // mirroring Handy. Best-effort: log on failure, never block startup.
+            {
+                use tauri_plugin_autostart::ManagerExt;
+                let mgr = app_handle.autolaunch();
+                let result = if settings.autostart_enabled {
+                    mgr.enable()
+                } else {
+                    mgr.disable()
+                };
+                if let Err(e) = result {
+                    log::error!(
+                        "Failed to reconcile OS autostart at startup (autostart_enabled={}): {e}",
+                        settings.autostart_enabled
+                    );
+                }
+            }
 
             // Create the main settings window programmatically (hidden initially)
             // rather than declaratively in tauri.conf.json. This mirrors Handy and

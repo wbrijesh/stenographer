@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod models;
+pub mod permissions;
 
 use std::sync::Arc;
 
@@ -263,13 +264,33 @@ pub fn change_start_hidden(app: AppHandle, start_hidden: bool) -> Result<(), Str
     Ok(())
 }
 
-/// Validate + persist + emit the autostart-enabled toggle.
+/// Validate + persist + emit the autostart-enabled toggle, then reconcile the
+/// OS-level launch-agent registration to match.
+///
+/// Persistence always happens first. The autostart plugin call is best-effort:
+/// if the OS rejects enabling/disabling the launch agent we log the error but
+/// do NOT fail the command, so the user's saved preference still sticks.
 #[tauri::command]
 #[specta::specta]
 pub fn change_autostart_enabled(app: AppHandle, autostart_enabled: bool) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+
     let mut settings = get_settings(&app);
     settings.autostart_enabled = autostart_enabled;
     write_settings(&app, &settings);
+
+    // Reconcile OS autostart (launch agent) with the new setting. Best-effort:
+    // log on failure but still report success since the setting was persisted.
+    let mgr = app.autolaunch();
+    let result = if autostart_enabled {
+        mgr.enable()
+    } else {
+        mgr.disable()
+    };
+    if let Err(e) = result {
+        log::error!("Failed to {} OS autostart: {e}", if autostart_enabled { "enable" } else { "disable" });
+    }
+
     app.emit("settings-changed", &settings)
         .map_err(|e| e.to_string())?;
     Ok(())

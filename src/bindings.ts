@@ -205,7 +205,12 @@ async changeStartHidden(startHidden: boolean) : Promise<Result<null, string>> {
 }
 },
 /**
- * Validate + persist + emit the autostart-enabled toggle.
+ * Validate + persist + emit the autostart-enabled toggle, then reconcile the
+ * OS-level launch-agent registration to match.
+ * 
+ * Persistence always happens first. The autostart plugin call is best-effort:
+ * if the OS rejects enabling/disabling the launch agent we log the error but
+ * do NOT fail the command, so the user's saved preference still sticks.
  */
 async changeAutostartEnabled(autostartEnabled: boolean) : Promise<Result<null, string>> {
     try {
@@ -407,6 +412,56 @@ async setModelUnloadTimeout(timeout: ModelUnloadTimeout) : Promise<Result<null, 
 async unloadModelManually() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unload_model_manually") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Whether the app currently has macOS Accessibility (AX) permission.
+ * 
+ * Required for the global Fn key listener and synthetic keystroke injection.
+ * Pure check — does NOT prompt the user.
+ */
+async checkAccessibilityPermission() : Promise<boolean> {
+    return await TAURI_INVOKE("check_accessibility_permission");
+},
+/**
+ * Request macOS Accessibility permission.
+ * 
+ * On macOS this triggers the system "grant Accessibility" prompt and opens the
+ * relevant System Settings pane. The grant is asynchronous and user-driven, so
+ * callers should poll [`check_accessibility_permission`] afterwards rather than
+ * assume success on return.
+ */
+async requestAccessibilityPermission() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("request_accessibility_permission") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Whether the app currently has macOS Microphone permission.
+ * 
+ * Pure check — does NOT prompt the user.
+ */
+async checkMicrophonePermission() : Promise<boolean> {
+    return await TAURI_INVOKE("check_microphone_permission");
+},
+/**
+ * Request macOS Microphone permission.
+ * 
+ * On macOS this calls `AVCaptureDevice requestAccessForMediaType`, which shows
+ * the system microphone prompt the first time it is called for this app. The
+ * result is delivered asynchronously to the user, so callers should poll
+ * [`check_microphone_permission`] afterwards rather than assume success on
+ * return.
+ */
+async requestMicrophonePermission() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("request_microphone_permission") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
