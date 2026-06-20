@@ -39,7 +39,7 @@
       "files": {},
       "hardenedRuntime": true,
       "minimumSystemVersion": "13.0",
-      "signingIdentity": "-",
+      "signingIdentity": "Stenographer Local Signing",
       "entitlements": "Entitlements.plist"
     }
   },
