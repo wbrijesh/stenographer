@@ -42,6 +42,11 @@ pub struct AppSettings {
     pub trigger_mode_enabled: bool,
     #[serde(default = "default_hold_tap_threshold_ms")]
     pub hold_tap_threshold_ms: u64,
+    /// The configurable trigger binding, parsed via `handy_keys::Hotkey`.
+    /// Modifier-only bindings (e.g. `"CmdRight"`) use tap detection; bindings
+    /// with a key (e.g. `"Ctrl+Shift+R"`) fire on the key-down combo.
+    #[serde(default = "default_trigger_binding")]
+    pub trigger_binding: String,
 
     // audio
     #[serde(default)]
@@ -92,6 +97,13 @@ fn default_trigger_mode_enabled() -> bool {
 fn default_hold_tap_threshold_ms() -> u64 {
     250
 }
+/// Default trigger binding: Right Command (right ⌘).
+///
+/// Verified to round-trip through `handy_keys::Hotkey`:
+/// `Hotkey::from_str("CmdRight").to_string() == "CmdRight"`.
+fn default_trigger_binding() -> String {
+    "CmdRight".to_string()
+}
 fn default_audio_feedback() -> bool {
     true
 }
@@ -133,6 +145,7 @@ pub fn get_default_settings() -> AppSettings {
     AppSettings {
         trigger_mode_enabled: default_trigger_mode_enabled(),
         hold_tap_threshold_ms: default_hold_tap_threshold_ms(),
+        trigger_binding: default_trigger_binding(),
         selected_microphone: None,
         selected_output_device: None,
         audio_feedback: default_audio_feedback(),
@@ -216,6 +229,7 @@ mod tests {
         let s = get_default_settings();
         assert!(s.trigger_mode_enabled);
         assert_eq!(s.hold_tap_threshold_ms, 250);
+        assert_eq!(s.trigger_binding, "CmdRight");
         assert!(s.audio_feedback);
         assert_eq!(s.audio_feedback_volume, 1.0);
         assert_eq!(s.paste_delay_ms, 60);

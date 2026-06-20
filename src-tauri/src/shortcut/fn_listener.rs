@@ -1,38 +1,42 @@
-//! Fn (Globe) key listener and trigger classifier.
+//! Configurable trigger listener and toggle detector.
 //!
 //! Listens to raw keyboard events through `handy-keys`' [`KeyboardListener`]
-//! (a CGEventTap on macOS) and translates Fn/Space activity into classified
-//! [`TriggerInput`]s for the [`Coordinator`].
+//! (a CGEventTap on macOS) and submits a single [`TriggerInput::Toggle`] to the
+//! [`Coordinator`] each time the user's configured trigger binding fires. The
+//! coordinator's toggle semantics turn the first fire into "start recording"
+//! and the next into "stop (transcribe + paste)".
 //!
-//! ## Classification (threshold = `hold_tap_threshold_ms`, default 250 ms)
+//! The listener is **passive**: it never suppresses or blocks the key, so the
+//! key keeps its normal OS behavior. The default binding is Right ⌘
+//! (`"CmdRight"`), which does nothing on its own in macOS, so passive listening
+//! is safe.
 //!
-//! - **Fn down** → [`TriggerInput::HoldStart`] immediately; record the press
-//!   [`Instant`]. This begins a *provisional* push-to-talk recording.
-//! - **Fn up, elapsed ≥ threshold** → [`TriggerInput::HoldStop`] (push-to-talk
-//!   end → transcribe+paste).
-//! - **Fn up, elapsed < threshold, no active toggle** → discard the provisional
-//!   recording via [`TriggerInput::Cancel`] (a too-short hold is a no-op).
-//! - **Fn + Space** (Space pressed while Fn held) → [`TriggerInput::ToggleStart`]
-//!   (cancels the provisional PTT for that press; begins a hands-free session).
-//! - **Fn tap while a toggle session is active** → [`TriggerInput::ToggleStop`].
+//! ## Binding kinds
 //!
-//! On macOS the Globe key arrives as a *FlagsChanged* event: the listener sees a
-//! [`KeyEvent`] with `changed_modifier == Some(Modifiers::FN)` and `is_key_down`
-//! distinguishing press from release.
+//! The binding is parsed from settings via [`Hotkey::from_str`]:
+//!
+//! - **Combo** (`binding.key.is_some()`, e.g. `Ctrl+Shift+R`): on a key-DOWN
+//!   whose key equals the binding key and whose modifiers match the binding
+//!   modifiers, submit [`TriggerInput::Toggle`].
+//! - **Modifier-only** (`binding.key.is_none()`, e.g. Right ⌘): *tap detection*.
+//!   Only a clean press → release of that modifier with NO other key (or
+//!   different modifier) in between counts as a tap. This prevents combos like
+//!   Right‑⌘+C from toggling.
 
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use handy_keys::{Key, KeyboardListener, Modifiers};
+use handy_keys::{Hotkey, KeyboardListener, Modifiers};
 use tauri::AppHandle;
 
 use crate::coordinator::{Coordinator, TriggerInput};
 use crate::settings::get_settings;
 
-/// Handle to a running Fn listener. Dropping it (or calling [`stop`]) signals
-/// the listener thread to shut down and joins it.
+/// Handle to a running trigger listener. Dropping it (or calling [`stop`])
+/// signals the listener thread to shut down and joins it.
 ///
 /// [`stop`]: FnListenerHandle::stop
 pub struct FnListenerHandle {
@@ -60,37 +64,53 @@ impl Drop for FnListenerHandle {
     }
 }
 
-/// Per-Fn-hold classifier state.
-struct FnState {
-    /// `Some(instant)` while Fn is physically held down.
-    fn_down_at: Option<Instant>,
-    /// Set when Space is pressed during the current Fn hold (Fn+Space chord),
-    /// so the Fn-up is treated as the start of a toggle rather than a PTT end.
-    toggle_started_this_hold: bool,
-    /// True while a hands-free toggle session is active (between Fn+Space and
-    /// the next Fn tap).
-    toggle_active: bool,
+/// Default binding used when settings are missing or unparseable: Right ⌘.
+fn fallback_binding() -> Hotkey {
+    // CMD_RIGHT, modifier-only — known-valid, so unwrap is safe.
+    Hotkey::new(Modifiers::CMD_RIGHT, None).expect("CMD_RIGHT is a valid hotkey")
 }
 
-impl FnState {
-    fn new() -> Self {
-        Self {
-            fn_down_at: None,
-            toggle_started_this_hold: false,
-            toggle_active: false,
+/// Parse the trigger binding from settings, falling back to Right ⌘ on error.
+fn read_binding(app: &AppHandle) -> Hotkey {
+    let s = get_settings(app).trigger_binding;
+    match Hotkey::from_str(&s) {
+        Ok(h) => h,
+        Err(e) => {
+            log::warn!("invalid trigger_binding {s:?} ({e}); falling back to Right Command");
+            fallback_binding()
         }
     }
 }
 
-/// Start the Fn listener.
+/// Tap-detection state for a modifier-only binding.
+struct TapState {
+    /// The single modifier flag we watch (e.g. `Modifiers::CMD_RIGHT`).
+    target: Modifiers,
+    /// True while the target modifier is physically held down.
+    trigger_down: bool,
+    /// Set if any other key-down or different modifier change occurred while
+    /// the target was held — invalidates the tap.
+    other_key_since_down: bool,
+}
+
+impl TapState {
+    fn new(target: Modifiers) -> Self {
+        Self {
+            target,
+            trigger_down: false,
+            other_key_since_down: false,
+        }
+    }
+}
+
+/// Start the configurable trigger listener.
 ///
 /// Installs the `handy-keys` CGEventTap (requires Accessibility on macOS) and
-/// spawns a thread that classifies Fn/Space events into [`TriggerInput`]s,
-/// submitting them to `coordinator`. Returns a [`FnListenerHandle`]; drop it or
+/// spawns a passive poll thread that detects the configured trigger and submits
+/// [`TriggerInput::Toggle`] to `coordinator`. The binding is read from
+/// `settings.trigger_binding` at startup; to change it, restart the listener
+/// (see `change_trigger_binding`). Returns a [`FnListenerHandle`]; drop it or
 /// call [`FnListenerHandle::stop`] to tear the listener down.
-///
-/// The hold/tap threshold is read from settings on each Fn-up, so changes take
-/// effect without restarting the listener.
 pub fn start_fn_listener(
     app: AppHandle,
     coordinator: Arc<Coordinator>,
@@ -98,8 +118,11 @@ pub fn start_fn_listener(
     // Construct the listener up front so permission/init failures surface to the
     // caller synchronously (the integration layer can then prompt for access).
     let listener = KeyboardListener::new().map_err(|e| {
-        format!("failed to start Fn keyboard listener (Accessibility granted?): {e}")
+        format!("failed to start trigger keyboard listener (Accessibility granted?): {e}")
     })?;
+
+    let binding = read_binding(&app);
+    log::info!("Trigger listener binding: {binding}");
 
     let running = Arc::new(AtomicBool::new(true));
     let thread_running = running.clone();
@@ -107,44 +130,19 @@ pub fn start_fn_listener(
     let thread = thread::spawn(move || {
         // Poll with a timeout so we can observe the `running` flag for shutdown.
         const RECV_TIMEOUT: Duration = Duration::from_millis(100);
-        let mut state = FnState::new();
 
-        log::info!("Fn listener started");
+        log::info!("Trigger listener started");
 
-        while thread_running.load(Ordering::SeqCst) {
-            let event = match listener.recv_timeout(RECV_TIMEOUT) {
-                Ok(ev) => ev,
-                Err(handy_keys::Error::Timeout) => continue,
-                Err(_) => {
-                    log::warn!("Fn listener: event source disconnected");
-                    break;
-                }
-            };
-
-            // --- Fn (Globe) press/release via FlagsChanged -------------------
-            if event.changed_modifier == Some(Modifiers::FN) {
-                if event.is_key_down && event.modifiers.contains(Modifiers::FN) {
-                    handle_fn_down(&mut state, &coordinator);
-                } else {
-                    handle_fn_up(&mut state, &coordinator, &app);
-                }
-                continue;
-            }
-
-            // --- Space ------------------------------------------------------
-            // Fn+Space chord: Space pressed while Fn is held → ToggleStart.
-            if event.is_key_down
-                && event.key == Some(Key::Space)
-                && state.fn_down_at.is_some()
-                && !state.toggle_started_this_hold
-            {
-                state.toggle_started_this_hold = true;
-                state.toggle_active = true;
-                coordinator.submit(TriggerInput::ToggleStart);
-            }
+        if let Some(key) = binding.key {
+            // ---- Combo binding (modifiers + key) -----------------------------
+            run_combo_loop(&listener, &thread_running, &coordinator, binding.modifiers, key, RECV_TIMEOUT);
+        } else {
+            // ---- Modifier-only binding (tap detection) -----------------------
+            let target = binding.modifiers;
+            run_tap_loop(&listener, &thread_running, &coordinator, target, RECV_TIMEOUT);
         }
 
-        log::info!("Fn listener stopped");
+        log::info!("Trigger listener stopped");
     });
 
     Ok(FnListenerHandle {
@@ -153,51 +151,75 @@ pub fn start_fn_listener(
     })
 }
 
-fn handle_fn_down(state: &mut FnState, coordinator: &Arc<Coordinator>) {
-    // Ignore key-repeat: only act on the first down of a hold.
-    if state.fn_down_at.is_some() {
-        return;
-    }
-    state.fn_down_at = Some(Instant::now());
-    state.toggle_started_this_hold = false;
+/// Combo-binding loop: fire on a key-down matching key + modifiers.
+fn run_combo_loop(
+    listener: &KeyboardListener,
+    running: &AtomicBool,
+    coordinator: &Arc<Coordinator>,
+    mods: Modifiers,
+    key: handy_keys::Key,
+    timeout: Duration,
+) {
+    while running.load(Ordering::SeqCst) {
+        let event = match listener.recv_timeout(timeout) {
+            Ok(ev) => ev,
+            Err(handy_keys::Error::Timeout) => continue,
+            Err(_) => {
+                log::warn!("trigger listener: event source disconnected");
+                break;
+            }
+        };
 
-    if state.toggle_active {
-        // A toggle session is active and the user tapped Fn again — this hold
-        // will end the toggle on Fn-up. Do not start a provisional PTT.
-        return;
+        if event.is_key_down && event.key == Some(key) && mods.matches(event.modifiers) {
+            log::info!("Trigger fired: Toggle");
+            coordinator.submit(TriggerInput::Toggle);
+        }
     }
-
-    // Begin a provisional push-to-talk recording immediately.
-    coordinator.submit(TriggerInput::HoldStart);
 }
 
-fn handle_fn_up(state: &mut FnState, coordinator: &Arc<Coordinator>, app: &AppHandle) {
-    let Some(down_at) = state.fn_down_at.take() else {
-        return;
-    };
-    let elapsed = down_at.elapsed();
+/// Modifier-only loop: clean press→release tap detection.
+fn run_tap_loop(
+    listener: &KeyboardListener,
+    running: &AtomicBool,
+    coordinator: &Arc<Coordinator>,
+    target: Modifiers,
+    timeout: Duration,
+) {
+    let mut state = TapState::new(target);
 
-    // Case 1: this hold started a toggle session (Fn+Space). The session is now
-    // running hands-free; releasing Fn does nothing.
-    if state.toggle_started_this_hold {
-        state.toggle_started_this_hold = false;
-        return;
-    }
+    while running.load(Ordering::SeqCst) {
+        let event = match listener.recv_timeout(timeout) {
+            Ok(ev) => ev,
+            Err(handy_keys::Error::Timeout) => continue,
+            Err(_) => {
+                log::warn!("trigger listener: event source disconnected");
+                break;
+            }
+        };
 
-    // Case 2: a toggle session is active and this was a plain Fn tap → stop it.
-    if state.toggle_active {
-        state.toggle_active = false;
-        coordinator.submit(TriggerInput::ToggleStop);
-        return;
-    }
+        if event.changed_modifier == Some(state.target) {
+            // A change of the watched modifier itself: press or release.
+            if event.is_key_down {
+                // Press of the target modifier → arm a potential tap.
+                state.trigger_down = true;
+                state.other_key_since_down = false;
+            } else {
+                // Release of the target modifier → a clean tap iff nothing else
+                // happened while it was held.
+                if state.trigger_down && !state.other_key_since_down {
+                    log::info!("Trigger fired: Toggle");
+                    coordinator.submit(TriggerInput::Toggle);
+                }
+                state.trigger_down = false;
+                state.other_key_since_down = false;
+            }
+            continue;
+        }
 
-    // Case 3: plain push-to-talk hold/tap. Threshold decides hold vs. tap.
-    let threshold = Duration::from_millis(get_settings(app).hold_tap_threshold_ms);
-    if elapsed >= threshold {
-        // Held long enough → push-to-talk end.
-        coordinator.submit(TriggerInput::HoldStop);
-    } else {
-        // Too short → discard the provisional recording started on Fn-down.
-        coordinator.submit(TriggerInput::Cancel);
+        // Any OTHER event while the target is held invalidates the tap:
+        // a regular key-down, or a change of a different modifier.
+        if state.trigger_down && (event.is_key_down || event.changed_modifier.is_some()) {
+            state.other_key_since_down = true;
+        }
     }
 }

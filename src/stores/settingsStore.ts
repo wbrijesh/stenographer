@@ -20,8 +20,18 @@ interface SettingsState {
   loading: boolean;
   error: string | null;
 
+  /**
+   * The current trigger binding as a handy-keys string (e.g. `"CmdRight"`),
+   * loaded separately from `getTriggerBinding()` since it is applied + persisted
+   * by the backend listener rather than through the optimistic `settings` setters.
+   */
+  triggerBinding: string | null;
+
   /** Load current + default settings from the backend. */
   initialize: () => Promise<void>;
+
+  /** (Re)load the current trigger binding from the backend. */
+  refreshTriggerBinding: () => Promise<void>;
 
   // General
   setTriggerModeEnabled: (v: boolean) => Promise<void>;
@@ -95,19 +105,29 @@ export const useSettingsStore = create<SettingsState>()(
       defaults: null,
       loading: false,
       error: null,
+      triggerBinding: null,
 
       initialize: async () => {
         set((s) => {
           s.loading = true;
         });
-        const [settings, defaults] = await Promise.all([
+        const [settings, defaults, triggerBinding] = await Promise.all([
           commands.getAppSettings(),
           commands.getDefaultSettings(),
+          commands.getTriggerBinding(),
         ]);
         set((s) => {
           s.settings = settings;
           s.defaults = defaults;
+          s.triggerBinding = triggerBinding;
           s.loading = false;
+        });
+      },
+
+      refreshTriggerBinding: async () => {
+        const triggerBinding = await commands.getTriggerBinding();
+        set((s) => {
+          s.triggerBinding = triggerBinding;
         });
       },
 

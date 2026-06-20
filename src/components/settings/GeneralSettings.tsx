@@ -1,6 +1,7 @@
 import { Row, Section, Slider, Toggle } from "@/components/ui";
 import type { AppSettings } from "@/bindings";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { ShortcutRecorder } from "@/components/ShortcutRecorder";
 
 interface Props {
   settings: AppSettings;
@@ -9,7 +10,6 @@ interface Props {
 export function GeneralSettings({ settings }: Props) {
   const {
     setTriggerModeEnabled,
-    setHoldTapThresholdMs,
     setOverlayEnabled,
     setStartHidden,
     setAutostartEnabled,
@@ -28,30 +28,19 @@ export function GeneralSettings({ settings }: Props) {
         description="How recording is started and stopped."
       >
         <Row
+          title="Trigger shortcut"
+          description="Press your trigger once to start, again to stop."
+        >
+          <ShortcutRecorder />
+        </Row>
+        <Row
           title="Enable trigger"
-          description="Turn the global push-to-talk / tap shortcut on or off."
+          description="Turn the global trigger shortcut on or off."
         >
           <Toggle
             aria-label="Enable trigger"
             checked={settings.trigger_mode_enabled ?? false}
             onChange={(v) => void setTriggerModeEnabled(v)}
-          />
-        </Row>
-        <Row
-          title="Hold / tap threshold"
-          description="Press shorter than this toggles recording; longer holds to talk."
-          stacked
-          disabled={!(settings.trigger_mode_enabled ?? false)}
-        >
-          <Slider
-            aria-label="Hold / tap threshold"
-            min={100}
-            max={1000}
-            step={10}
-            value={settings.hold_tap_threshold_ms ?? 300}
-            disabled={!(settings.trigger_mode_enabled ?? false)}
-            onChange={(v) => void setHoldTapThresholdMs(v)}
-            formatValue={(v) => `${v} ms`}
           />
         </Row>
       </Section>

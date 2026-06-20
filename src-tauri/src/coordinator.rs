@@ -41,6 +41,10 @@ pub enum TriggerInput {
     ToggleStart,
     /// The active toggle session ended (Fn tapped while toggling).
     ToggleStop,
+    /// A single configurable trigger fired (the current model): toggle
+    /// recording on/off. `Idle` → start recording; `Recording` → stop
+    /// (transcribe + paste); `Processing` → ignored (debounce).
+    Toggle,
     /// Abort whatever is in flight (e.g. Escape) without producing output.
     Cancel,
 }
@@ -258,6 +262,31 @@ impl Coordinator {
                                     log::debug!("ignoring ToggleStop: not in a toggle session");
                                 }
                             }
+                            TriggerInput::Toggle => match stage {
+                                Stage::Idle => {
+                                    // Debounce rapid repeated start toggles.
+                                    let now = Instant::now();
+                                    if last_start
+                                        .map_or(false, |t| now.duration_since(t) < DEBOUNCE)
+                                    {
+                                        log::debug!("debounced Toggle start");
+                                        continue;
+                                    }
+                                    last_start = Some(now);
+
+                                    set_stage(Stage::Recording);
+                                    log::info!("TOGGLE-START");
+                                    actions.fire(PipelineAction::RecordStart);
+                                }
+                                Stage::Recording => {
+                                    set_stage(Stage::Processing);
+                                    log::info!("TOGGLE-STOP");
+                                    actions.fire(PipelineAction::RecordStop);
+                                }
+                                Stage::Processing => {
+                                    log::debug!("ignoring Toggle: pipeline busy");
+                                }
+                            },
                             TriggerInput::Cancel => {
                                 // Don't yank the rug during Processing — let the
                                 // pipeline finish (it will signal ProcessingFinished).

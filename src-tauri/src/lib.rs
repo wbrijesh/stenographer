@@ -63,6 +63,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::audio::initialize_enigo,
         commands::audio::initialize_shortcuts,
         commands::audio::cancel_operation,
+        commands::audio::get_trigger_binding,
+        commands::audio::change_trigger_binding,
+        commands::audio::capture_shortcut,
         // --- model management ---
         commands::models::get_available_models,
         commands::models::download_model,

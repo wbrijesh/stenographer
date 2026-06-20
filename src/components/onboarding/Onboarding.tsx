@@ -4,7 +4,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { WelcomeStep } from "./WelcomeStep";
 import { MicrophoneStep } from "./MicrophoneStep";
 import { AccessibilityStep } from "./AccessibilityStep";
-import { GlobeKeyStep } from "./GlobeKeyStep";
+import { ShortcutStep } from "./ShortcutStep";
 import { ModelStep } from "./ModelStep";
 import { DoneStep } from "./DoneStep";
 
@@ -20,7 +20,7 @@ type StepId =
   | "welcome"
   | "microphone"
   | "accessibility"
-  | "globe"
+  | "shortcut"
   | "model"
   | "done";
 
@@ -28,7 +28,7 @@ const ORDER: StepId[] = [
   "welcome",
   "microphone",
   "accessibility",
-  "globe",
+  "shortcut",
   "model",
   "done",
 ];
@@ -68,7 +68,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const stepSatisfied = (id: StepId): boolean => {
     switch (id) {
       case "welcome":
-      case "globe":
+      case "shortcut":
       case "done":
         return true;
       case "microphone":
@@ -98,8 +98,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             onGranted={() => void onStepProgress()}
           />
         );
-      case "globe":
-        return <GlobeKeyStep onResolved={goNext} />;
+      case "shortcut":
+        return <ShortcutStep onContinue={goNext} />;
       case "model":
         return <ModelStep onReady={() => void onStepProgress()} />;
       case "done":

@@ -315,6 +315,55 @@ async cancelOperation() : Promise<void> {
     await TAURI_INVOKE("cancel_operation");
 },
 /**
+ * Return the current persisted trigger binding string (e.g. `"CmdRight"`).
+ */
+async getTriggerBinding() : Promise<string> {
+    return await TAURI_INVOKE("get_trigger_binding");
+},
+/**
+ * Validate, persist, and apply a new trigger binding.
+ * 
+ * The string must parse as a `handy_keys::Hotkey` (else `Err`). On success it
+ * is persisted, then the live listener is restarted so the new binding takes
+ * effect immediately. If the listener was not running (e.g. Accessibility not
+ * yet granted), the binding is just persisted — it will be picked up when the
+ * listener is initialized later.
+ */
+async changeTriggerBinding(binding: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_trigger_binding", { binding }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Capture the user's next keyboard gesture for the "record shortcut" UI.
+ * 
+ * While capturing, the main trigger listener is temporarily stopped (so it
+ * can't toggle recording during capture) and a fresh [`KeyboardListener`] is
+ * installed. The capture loop runs for up to ~7s:
+ * 
+ * - a key-DOWN with a non-modifier key → returns `modifiers+key` (e.g.
+ * `"Ctrl+Shift+R"`);
+ * - a modifier-only press → returns the held modifiers on the modifier RELEASE
+ * (e.g. `"CmdRight"`);
+ * - `Escape` → `Err("cancelled")`;
+ * - no gesture before the timeout → `Err("timed out")`.
+ * 
+ * The main listener (with the still-current saved binding) is always restarted
+ * before returning if it was running. Runs on a blocking thread so the up-to-7s
+ * wait does not block the async runtime / main thread.
+ */
+async captureShortcut() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("capture_shortcut") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Full catalog with `is_downloaded` / `is_downloading` reflecting disk state.
  */
 async getAvailableModels() : Promise<Result<ModelInfo[], string>> {
@@ -486,7 +535,13 @@ async requestMicrophonePermission() : Promise<Result<null, string>> {
  * Every field carries a `#[serde(default = "...")]` so that settings written
  * by an older build (missing newer fields) still deserialize cleanly.
  */
-export type AppSettings = { trigger_mode_enabled?: boolean; hold_tap_threshold_ms?: number; selected_microphone?: string | null; selected_output_device?: string | null; audio_feedback?: boolean; audio_feedback_volume?: number; mute_while_recording?: boolean; selected_model?: string | null; selected_language?: string; translate_to_english?: boolean; model_unload_timeout?: ModelUnloadTimeout; paste_delay_ms?: number; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; append_trailing_space?: boolean; overlay_enabled?: boolean; start_hidden?: boolean; autostart_enabled?: boolean; show_tray_icon?: boolean }
+export type AppSettings = { trigger_mode_enabled?: boolean; hold_tap_threshold_ms?: number; 
+/**
+ * The configurable trigger binding, parsed via `handy_keys::Hotkey`.
+ * Modifier-only bindings (e.g. `"CmdRight"`) use tap detection; bindings
+ * with a key (e.g. `"Ctrl+Shift+R"`) fire on the key-down combo.
+ */
+trigger_binding?: string; selected_microphone?: string | null; selected_output_device?: string | null; audio_feedback?: boolean; audio_feedback_volume?: number; mute_while_recording?: boolean; selected_model?: string | null; selected_language?: string; translate_to_english?: boolean; model_unload_timeout?: ModelUnloadTimeout; paste_delay_ms?: number; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; append_trailing_space?: boolean; overlay_enabled?: boolean; start_hidden?: boolean; autostart_enabled?: boolean; show_tray_icon?: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 /**
  * Device descriptor returned to the frontend.
