@@ -1,0 +1,137 @@
+/* Transparent canvas: the NSPanel itself is transparent; only the pill paints. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  /* The whole webview is the overlay; nothing should select or scroll. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+#overlay-root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-pill {
+  box-sizing: border-box;
+  height: 36px;
+  width: 172px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: rgba(20, 20, 22, 0.82);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    0 0 0 0.5px rgba(0, 0, 0, 0.4);
+  color: #f4f4f6;
+  /* Hidden by default; fade in/out driven by the `is-visible` class. */
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 240ms ease-out,
+    transform 240ms ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.overlay-pill.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.overlay-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff5d73;
+}
+
+.overlay-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.overlay-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* --- Waveform --- */
+.waveform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.wave-bar {
+  width: 4px;
+  min-height: 4px;
+  border-radius: 2px;
+  background: #ffd9e0;
+  transition:
+    height 70ms ease-out,
+    opacity 120ms ease-out;
+}
+
+/* --- Transcribing --- */
+.overlay-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e7e7ea;
+  letter-spacing: 0.2px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* --- Cancel button --- */
+.cancel-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #cfcfd4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 100ms ease-out;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 93, 115, 0.22);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.cancel-btn:active {
+  transform: scale(0.94);
+}

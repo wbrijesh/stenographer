@@ -1,60 +1,92 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { SidebarItem } from "@/components/ui";
+import {
+  AdvancedSettings,
+  GeneralSettings,
+  ModelsSettings,
+} from "@/components/settings";
+import {
+  AdvancedIcon,
+  GeneralIcon,
+  ModelsIcon,
+} from "@/components/icons";
+import type { AppSettings } from "@/bindings";
 import "./App.css";
 
+type SectionId = "general" | "models" | "advanced";
+
+interface SectionDef {
+  id: SectionId;
+  label: string;
+  icon: React.ReactNode;
+  render: (settings: AppSettings) => React.ReactNode;
+}
+
+const SECTIONS: SectionDef[] = [
+  {
+    id: "general",
+    label: "General",
+    icon: <GeneralIcon />,
+    render: (s) => <GeneralSettings settings={s} />,
+  },
+  {
+    id: "models",
+    label: "Models",
+    icon: <ModelsIcon />,
+    render: (s) => <ModelsSettings settings={s} />,
+  },
+  {
+    id: "advanced",
+    label: "Advanced",
+    icon: <AdvancedIcon />,
+    render: (s) => <AdvancedSettings settings={s} />,
+  },
+];
+
 function App() {
-  const { settings, loading, initialize, setPasteDelayMs, setOverlayEnabled } =
-    useSettingsStore();
+  const { settings, loading, initialize } = useSettingsStore();
+  const [active, setActive] = useState<SectionId>("general");
 
   useEffect(() => {
     void initialize();
   }, [initialize]);
 
+  const current = SECTIONS.find((s) => s.id === active) ?? SECTIONS[0];
+
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-semibold">Stenographer</h1>
-      <p className="mt-1 text-sm opacity-60">Phase 0 scaffold</p>
-
-      {loading && <p className="mt-4">Loading settings…</p>}
-
-      {settings && (
-        <section className="mt-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <label htmlFor="paste-delay" className="w-40">
-              Paste delay (ms)
-            </label>
-            <input
-              id="paste-delay"
-              type="number"
-              className="w-24 rounded border px-2 py-1"
-              value={settings.paste_delay_ms}
-              onChange={(e) => void setPasteDelayMs(Number(e.target.value))}
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-text">
+      {/* Sidebar */}
+      <aside className="flex w-48 shrink-0 flex-col border-r border-black/10 bg-black/[0.02] px-2.5 pt-4">
+        <div className="px-2 pb-4">
+          <h1 className="text-base font-semibold tracking-tight">
+            Stenographer
+          </h1>
+          <p className="text-[11px] text-black/40">Settings</p>
+        </div>
+        <nav className="flex flex-col gap-1">
+          {SECTIONS.map((section) => (
+            <SidebarItem
+              key={section.id}
+              label={section.label}
+              icon={section.icon}
+              active={active === section.id}
+              onClick={() => setActive(section.id)}
             />
-          </div>
+          ))}
+        </nav>
+      </aside>
 
-          <div className="flex items-center gap-3">
-            <label htmlFor="overlay-enabled" className="w-40">
-              Overlay enabled
-            </label>
-            <input
-              id="overlay-enabled"
-              type="checkbox"
-              checked={settings.overlay_enabled}
-              onChange={(e) => void setOverlayEnabled(e.target.checked)}
-            />
-          </div>
-
-          <details className="mt-6">
-            <summary className="cursor-pointer text-sm opacity-70">
-              Raw settings
-            </summary>
-            <pre className="mt-2 overflow-auto rounded bg-black/5 p-3 text-xs">
-              {JSON.stringify(settings, null, 2)}
-            </pre>
-          </details>
-        </section>
-      )}
-    </main>
+      {/* Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-6 py-7">
+          {loading && !settings && (
+            <p className="text-sm text-black/50">Loading settings…</p>
+          )}
+          {settings && current.render(settings)}
+        </div>
+      </main>
+    </div>
   );
 }
 
