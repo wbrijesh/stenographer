@@ -42,9 +42,24 @@ pub fn build_pipeline_actions(app_handle: AppHandle) -> PipelineActions {
     }
 }
 
+/// Run a UI closure on the macOS main thread (AppKit requires it).
+///
+/// All overlay (NSPanel) and tray (`TrayIcon`) updates MUST run on the main
+/// thread; `run_on_main_thread` schedules the closure asynchronously, which is
+/// fine for these fire-and-forget UI updates.
+fn on_main(app: &AppHandle, f: impl FnOnce(AppHandle) + Send + 'static) {
+    let a = app.clone();
+    if let Err(e) = app.run_on_main_thread(move || f(a)) {
+        log::error!("run_on_main_thread failed: {e}");
+    }
+}
+
 fn record_start(app: &AppHandle) {
-    tray::set_state(app, TrayState::Recording);
-    overlay::show_recording(app);
+    // Overlay/tray are AppKit and must run on the main thread.
+    on_main(app, |app| {
+        tray::set_state(&app, TrayState::Recording);
+        overlay::show_recording(&app);
+    });
     audio_feedback::play_start_sound(app);
 
     let transcription = app.state::<Arc<TranscriptionManager>>();
@@ -59,8 +74,11 @@ fn record_start(app: &AppHandle) {
         log::error!("start_recording failed: {e}");
         // Recover: surface the error, reset UI, and release the pipeline stage.
         let _ = app.emit_recording_error(&e.to_string());
-        overlay::hide_overlay(app);
-        tray::set_state(app, TrayState::Idle);
+        // Overlay/tray are AppKit and must run on the main thread.
+        on_main(app, |app| {
+            overlay::hide_overlay(&app);
+            tray::set_state(&app, TrayState::Idle);
+        });
         if let Some(coordinator) = app.try_state::<Arc<Coordinator>>() {
             coordinator.notify_processing_finished();
         }
@@ -70,8 +88,11 @@ fn record_start(app: &AppHandle) {
 fn record_stop(app: AppHandle) {
     // Off the actor thread: transcription can take seconds.
     std::thread::spawn(move || {
-        tray::set_state(&app, TrayState::Transcribing);
-        overlay::show_transcribing(&app);
+        // Overlay/tray are AppKit and must run on the main thread.
+        on_main(&app, |app| {
+            tray::set_state(&app, TrayState::Transcribing);
+            overlay::show_transcribing(&app);
+        });
         audio_feedback::play_stop_sound(&app);
 
         let audio = app.state::<Arc<AudioRecordingManager>>();
@@ -94,8 +115,11 @@ fn record_stop(app: AppHandle) {
             }
         }
 
-        overlay::hide_overlay(&app);
-        tray::set_state(&app, TrayState::Idle);
+        // Overlay/tray are AppKit and must run on the main thread.
+        on_main(&app, |app| {
+            overlay::hide_overlay(&app);
+            tray::set_state(&app, TrayState::Idle);
+        });
 
         if let Some(coordinator) = app.try_state::<Arc<Coordinator>>() {
             coordinator.notify_processing_finished();
@@ -106,8 +130,11 @@ fn record_stop(app: AppHandle) {
 fn cancel(app: &AppHandle) {
     let audio = app.state::<Arc<AudioRecordingManager>>();
     audio.cancel_recording();
-    overlay::hide_overlay(app);
-    tray::set_state(app, TrayState::Idle);
+    // Overlay/tray are AppKit and must run on the main thread.
+    on_main(app, |app| {
+        overlay::hide_overlay(&app);
+        tray::set_state(&app, TrayState::Idle);
+    });
     if let Some(coordinator) = app.try_state::<Arc<Coordinator>>() {
         coordinator.notify_processing_finished();
     }
