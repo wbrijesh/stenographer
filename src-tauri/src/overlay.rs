@@ -10,9 +10,11 @@
 //!   * Build a **non-activating floating panel** (`can_become_key_window: false`,
 //!     `is_floating_panel: true`) at `PanelLevel::Status`.
 //!   * Give it a collection behavior of
-//!     `canJoinAllSpaces | fullScreenAuxiliary | transient | stationary`
-//!     (plus `moveToActiveSpace`), so it follows the active Space and is ignored
-//!     by the WM's tiling/cycling.
+//!     `canJoinAllSpaces | fullScreenAuxiliary | stationary | ignoresCycle`,
+//!     so it is present on every Space (hence always on the active one), floats
+//!     over full-screen apps, and is ignored by the WM's tiling/cycling. NOTE:
+//!     these flags are picked to respect macOS's mutually-exclusive collection-
+//!     behavior groups (see `overlay_collection_behavior`).
 //!   * On **every** show, *re-apply* the collection behavior (re-homing it to the
 //!     active Space), reposition it to the monitor under the cursor, and surface
 //!     it via `orderFrontRegardless:` — **never** `makeKeyAndOrderFront:`, never
@@ -81,18 +83,34 @@ tauri_panel! {
 
 /// Collection behavior that makes the panel a well-behaved, space-following
 /// overlay under Aerospace: it joins every Space, floats over full-screen apps,
-/// is transient (not cycled/managed) and stationary (the WM won't move it).
+/// is stationary (the WM won't move it) and is kept out of the window cycle.
 ///
-/// We additionally request `moveToActiveSpace` so that re-applying this behavior
-/// on each show pulls the panel onto whatever Space is now active.
+/// ## macOS mutual-exclusivity groups (DO NOT REINTRODUCE conflicts)
+/// `NSWindowCollectionBehavior` enforces mutually-exclusive GROUPS; you may set
+/// AT MOST ONE flag from each group. Setting two flags from the same group
+/// triggers `*** Assertion failure in -[NSWindow _validateCollectionBehavior:]`
+/// → an Obj-C exception that unwinds through tao's non-unwinding
+/// `applicationDidFinishLaunching:` → `abort()` (a hard launch crash).
+///
+/// The relevant groups are:
+///   * **Spaces:** `canJoinAllSpaces` XOR `moveToActiveSpace` — pick ONE.
+///   * **Exposé/cycle (managed/transient/stationary):** at most one of
+///     `managed`, `transient`, `stationary`.
+///   * `ignoresCycle` / `participatesInCycle` are a SEPARATE group (window
+///     cycle), so `ignores_cycle()` is safe alongside the above.
+///
+/// We choose `can_join_all_spaces()` (the panel is present on ALL Spaces, so it
+/// is always on whatever Space is active — no Space switch needed, which is why
+/// `move_to_active_space` is both unnecessary AND a conflicting flag) and
+/// `stationary()` (the WM/Spaces/Exposé won't move it; `transient` would
+/// conflict with `stationary`).
 #[cfg(target_os = "macos")]
 fn overlay_collection_behavior() -> CollectionBehavior {
     CollectionBehavior::new()
         .can_join_all_spaces()
         .full_screen_auxiliary()
-        .transient()
         .stationary()
-        .move_to_active_space()
+        .ignores_cycle()
 }
 
 // --- Cursor lookup -----------------------------------------------------------
