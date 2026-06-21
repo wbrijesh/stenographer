@@ -1,14 +1,15 @@
-/* Transparent canvas: the NSPanel itself is transparent; only the pill paints. */
+/* Transparent canvas: the NSPanel itself is transparent; only the panel paints. */
 html,
 body {
   margin: 0;
   padding: 0;
-  /* Match the 420x56 logical panel so the pill fills it exactly. */
-  width: 420px;
-  height: 56px;
+  /* Match the 440x132 logical panel so the rectangle fills it exactly. */
+  width: 440px;
+  height: 132px;
   background: transparent;
   overflow: hidden;
-  /* The whole webview is the overlay; nothing should select or scroll. */
+  /* The whole webview is the overlay; nothing should select outside the
+     transcript area. */
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
@@ -22,97 +23,155 @@ body {
   justify-content: center;
 }
 
-.overlay-pill {
+.overlay-panel {
   box-sizing: border-box;
-  /* Fill the 420x56 panel, leaving a hair of margin so the shadow/border are
+  /* Fill the 440x132 panel, leaving a hair of margin so the shadow/border are
      not clipped by the webview edge. */
-  height: 52px;
-  width: 412px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  background: rgba(20, 20, 22, 0.82);
+  width: 432px;
+  height: 124px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px 8px;
+  gap: 4px;
+  background: rgba(20, 20, 22, 0.86);
   border: 0.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 26px;
+  border-radius: 16px;
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.35),
-    0 0 0 0.5px rgba(0, 0, 0, 0.4);
+    0 6px 22px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(0, 0, 0, 0.45);
   color: #f4f4f6;
   /* Always fully visible. Visibility is owned by the Rust side, which orders
      the NSPanel front (show) or calls orderOut (hide). The webview never gates
-     its own opacity, so a missed JS event can never leave the pill stuck
+     its own opacity, so a missed JS event can never leave the panel stuck
      invisible. */
   opacity: 1;
-  transform: translateY(0);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
 }
 
-/* Leading cluster: mic glyph plus an optional compact waveform beside it. */
-.overlay-lead {
+/* --- TOP: scrollable live transcript --- */
+.overlay-scroll {
+  flex: 1 1 auto;
+  /* ~84px tall content area within the rectangle. */
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Let the user read / select the transcript even though the chrome doesn't. */
+  user-select: text;
+  -webkit-user-select: text;
+  padding-right: 4px;
+  /* Subtle fade so text meets the top edge gracefully. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
+}
+
+.overlay-transcript {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 450;
+  line-height: 1.45;
+  color: #ececef;
+  letter-spacing: 0.1px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.overlay-placeholder {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 450;
+  line-height: 1.45;
+  color: rgba(235, 235, 240, 0.4);
+  letter-spacing: 0.2px;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+/* Subtle, macOS-like scrollbar. */
+.overlay-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overlay-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overlay-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+}
+
+.overlay-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* --- BOTTOM: control row --- */
+.overlay-controls {
+  flex: 0 0 auto;
+  height: 32px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding-top: 2px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
-.overlay-icon {
+.overlay-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --- Mic / pause toggle (bottom-left) --- */
+.mic-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 93, 115, 0.16);
+  color: #ff5d73;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ff5d73;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 100ms ease-out;
 }
 
-.overlay-center {
-  display: flex;
-  align-items: center;
-  /* Left-align so growing transcript text reads naturally; the placeholder
-     waveform centers itself within this flex row. */
-  justify-content: flex-start;
-  min-width: 0;
-  /* Reserve vertical space so swapping waveform <-> text never jumps. */
-  height: 24px;
+.mic-btn:hover {
+  background: rgba(255, 93, 115, 0.26);
+  transform: scale(1.06);
 }
 
-.overlay-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+.mic-btn:active {
+  transform: scale(0.94);
 }
 
-/* --- Live transcript text --- */
-.overlay-transcript {
-  font-size: 13px;
-  font-weight: 450;
-  line-height: 1.2;
-  color: #e9e9ec;
-  letter-spacing: 0.1px;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  /* `dir="rtl"` (set on the element) anchors the END of the LTR text to the
-     visible edge so the most recent words stay in view as the transcript
-     grows; the ellipsis then appears at the (visual) start. */
-  text-overflow: ellipsis;
-  text-align: left;
+/* Paused: calm, dimmed look. */
+.mic-btn--paused {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mic-btn--paused:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* --- Waveform --- */
 .waveform {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 3px;
   height: 24px;
 }
 
-.waveform--compact {
-  height: 20px;
-  gap: 2px;
-}
-
 .wave-bar {
-  width: 4px;
+  width: 3px;
   min-height: 4px;
   border-radius: 2px;
   background: #ffd9e0;
@@ -121,17 +180,8 @@ body {
     opacity 120ms ease-out;
 }
 
-.waveform--compact .wave-bar {
-  width: 3px;
-}
-
-/* --- Transcribing --- */
-.overlay-text {
-  font-size: 13px;
-  font-weight: 500;
-  color: #e7e7ea;
-  letter-spacing: 0.2px;
-  animation: pulse 1.5s ease-in-out infinite;
+.waveform--paused .wave-bar {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 @keyframes pulse {
@@ -144,10 +194,10 @@ body {
   }
 }
 
-/* --- Cancel button --- */
+/* --- Cancel button (bottom-right) --- */
 .cancel-btn {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
   border-radius: 50%;

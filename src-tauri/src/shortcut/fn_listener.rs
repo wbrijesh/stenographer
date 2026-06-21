@@ -32,7 +32,7 @@ use std::time::Duration;
 use handy_keys::{Hotkey, KeyboardListener, Modifiers};
 use tauri::AppHandle;
 
-use crate::coordinator::{Coordinator, TriggerInput};
+use crate::coordinator::{Coordinator, Stage, TriggerInput};
 use crate::settings::get_settings;
 
 /// Handle to a running trigger listener. Dropping it (or calling [`stop`])
@@ -151,6 +151,22 @@ pub fn start_fn_listener(
     })
 }
 
+/// Escape handling, shared by both loops. Escape is a FIXED (non-configurable)
+/// cancel key: on an Escape key-DOWN, if a session is active (the coordinator's
+/// stage is not `Idle`), submit [`TriggerInput::Cancel`]. It is intentionally
+/// inert when idle so Escape keeps its normal meaning elsewhere. Returns `true`
+/// if the event was an Escape key-down (handled here).
+fn handle_escape(event: &handy_keys::KeyEvent, coordinator: &Arc<Coordinator>) -> bool {
+    if event.is_key_down && event.key == Some(handy_keys::Key::Escape) {
+        if coordinator.stage() != Stage::Idle {
+            log::info!("Escape pressed during active session: Cancel");
+            coordinator.submit(TriggerInput::Cancel);
+        }
+        return true;
+    }
+    false
+}
+
 /// Combo-binding loop: fire on a key-down matching key + modifiers.
 fn run_combo_loop(
     listener: &KeyboardListener,
@@ -169,6 +185,11 @@ fn run_combo_loop(
                 break;
             }
         };
+
+        // Escape (fixed) cancels an active session before any binding handling.
+        if handle_escape(&event, coordinator) {
+            continue;
+        }
 
         if event.is_key_down && event.key == Some(key) && mods.matches(event.modifiers) {
             log::info!("Trigger fired: Toggle");
@@ -196,6 +217,12 @@ fn run_tap_loop(
                 break;
             }
         };
+
+        // Escape (fixed) cancels an active session. Handle it before tap logic;
+        // it neither arms nor invalidates the modifier tap.
+        if handle_escape(&event, coordinator) {
+            continue;
+        }
 
         if event.changed_modifier == Some(state.target) {
             // A change of the watched modifier itself: press or release.

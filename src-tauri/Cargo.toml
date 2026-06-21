@@ -72,6 +72,9 @@ rdev = { git = "https://github.com/rustdesk-org/rdev" }
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 transcribe-rs = { version = "0.3.8", features = ["whisper-cpp", "onnx", "whisper-metal"] }
+# Apple on-device FoundationModels is integrated via our own swiftc-compiled
+# bridge (swift/fm_bridge.swift, linked by build.rs) — the `foundation-models`
+# crate's SwiftPM build is broken in this environment, so it is NOT used.
 
 [dev-dependencies]
 tempfile = "3"

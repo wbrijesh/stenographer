@@ -252,6 +252,28 @@ pub fn change_append_trailing_space(
     Ok(())
 }
 
+/// Whether on-device transcription cleanup (Apple FoundationModels) is
+/// available on this machine. The frontend uses this to decide whether to SHOW
+/// the "Clean up transcription" toggle at all.
+#[tauri::command]
+#[specta::specta]
+pub fn is_cleanup_available() -> bool {
+    crate::llm::is_available()
+}
+
+/// Validate + persist + emit the cleanup-enabled toggle. Only effective when
+/// `is_cleanup_available()` is true.
+#[tauri::command]
+#[specta::specta]
+pub fn change_cleanup_enabled(app: AppHandle, cleanup_enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.cleanup_enabled = cleanup_enabled;
+    write_settings(&app, &settings);
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Validate + persist + emit the start-hidden toggle.
 #[tauri::command]
 #[specta::specta]

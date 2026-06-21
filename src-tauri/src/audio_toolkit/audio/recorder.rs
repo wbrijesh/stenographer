@@ -23,6 +23,8 @@ enum Cmd {
     Start,
     Stop(mpsc::Sender<Vec<f32>>),
     Snapshot(mpsc::Sender<Vec<f32>>),
+    Pause,
+    Resume,
     Shutdown,
 }
 
@@ -159,8 +161,11 @@ impl AudioRecorder {
             match init_result {
                 Ok((stream, sample_rate)) => {
                     let _ = init_tx.send(Ok(()));
-                    // Keep the stream alive while we process samples.
-                    run_consumer(sample_rate, vad, sample_rx, cmd_rx, level_cb, stop_flag);
+                    // Keep the stream alive while we process samples. The stream is
+                    // moved into the consumer so Pause/Resume can call
+                    // `stream.pause()` / `stream.play()` to gate the cpal callback
+                    // without tearing down the worker or clearing the buffer.
+                    run_consumer(&stream, sample_rate, vad, sample_rx, cmd_rx, level_cb, stop_flag);
                     drop(stream);
                 }
                 Err(error_message) => {
@@ -201,6 +206,23 @@ impl AudioRecorder {
             tx.send(Cmd::Start)?;
         }
         Ok(())
+    }
+
+    /// Pause the microphone: stops feeding audio into the buffer while keeping
+    /// the buffer and worker thread alive. Already-captured `processed_samples`
+    /// are preserved. Resume with [`AudioRecorder::resume`].
+    pub fn pause(&self) {
+        if let Some(tx) = &self.cmd_tx {
+            let _ = tx.send(Cmd::Pause);
+        }
+    }
+
+    /// Resume the microphone after a [`AudioRecorder::pause`]. Capture continues
+    /// appending to the existing buffer.
+    pub fn resume(&self) {
+        if let Some(tx) = &self.cmd_tx {
+            let _ = tx.send(Cmd::Resume);
+        }
     }
 
     pub fn stop(&self) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
@@ -411,6 +433,7 @@ mod tests {
 }
 
 fn run_consumer(
+    stream: &cpal::Stream,
     in_sample_rate: u32,
     vad: Option<Arc<Mutex<Box<dyn vad::VoiceActivityDetector>>>>,
     sample_rx: mpsc::Receiver<AudioChunk>,
@@ -539,6 +562,17 @@ fn run_consumer(
                 }
                 Cmd::Snapshot(reply) => {
                     let _ = reply.send(processed_samples.clone());
+                }
+                Cmd::Pause => {
+                    // Stop the cpal callback from delivering audio. The buffer
+                    // (`processed_samples`) and worker thread stay alive; we are
+                    // not recording-stopped, just temporarily not capturing.
+                    let _ = stream.pause();
+                }
+                Cmd::Resume => {
+                    // Resume the cpal callback; capture continues appending to the
+                    // existing buffer.
+                    let _ = stream.play();
                 }
                 Cmd::Shutdown => {
                     stop_flag.store(true, Ordering::Relaxed);

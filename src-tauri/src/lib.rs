@@ -10,6 +10,7 @@ mod audio_toolkit;
 mod clipboard;
 mod coordinator;
 mod input;
+mod llm;
 mod managers;
 mod overlay;
 mod pipeline;
@@ -50,6 +51,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::change_auto_submit,
         commands::change_auto_submit_key,
         commands::change_append_trailing_space,
+        commands::is_cleanup_available,
+        commands::change_cleanup_enabled,
         commands::change_start_hidden,
         commands::change_autostart_enabled,
         commands::change_show_tray_icon,
@@ -255,6 +258,21 @@ pub fn run() {
             app.manage(audio.clone());
             app.manage(coordinator.clone());
             app.manage(crate::commands::audio::FnListenerState::default());
+
+            // --- On-device cleanup (Apple FoundationModels) ------------------
+            //
+            // Log availability and, if available, warm the model on a background
+            // thread so the first real cleanup is on the warm path (~0.7s vs the
+            // ~2.3s cold start).
+            if crate::llm::is_available() {
+                log::info!("On-device cleanup (FoundationModels) available; warming model");
+                std::thread::spawn(|| {
+                    crate::llm::warm();
+                    log::info!("On-device cleanup model warmed");
+                });
+            } else {
+                log::info!("On-device cleanup (FoundationModels) not available on this system");
+            }
 
             // --- Overlay panel (hidden until recording) ----------------------
             crate::overlay::create_overlay(&app_handle);

@@ -159,6 +159,7 @@ pub struct AudioRecordingManager {
     recorder: Arc<Mutex<Option<AudioRecorder>>>,
     is_open: Arc<Mutex<bool>>,
     is_recording: Arc<Mutex<bool>>,
+    is_paused: Arc<Mutex<bool>>,
     did_mute: Arc<Mutex<bool>>,
 }
 
@@ -172,6 +173,7 @@ impl AudioRecordingManager {
             recorder: Arc::new(Mutex::new(None)),
             is_open: Arc::new(Mutex::new(false)),
             is_recording: Arc::new(Mutex::new(false)),
+            is_paused: Arc::new(Mutex::new(false)),
             did_mute: Arc::new(Mutex::new(false)),
         }
     }
@@ -335,6 +337,7 @@ impl AudioRecordingManager {
             if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
                 if rec.start().is_ok() {
                     *self.is_recording.lock().unwrap() = true;
+                    *self.is_paused.lock().unwrap() = false;
                     *state = RecordingState::Recording {
                         binding_id: binding_id.to_string(),
                     };
@@ -359,6 +362,12 @@ impl AudioRecordingManager {
                 drop(state);
 
                 let samples = if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+                    // If paused, resume the cpal stream first so the stop-drain can
+                    // receive the EndOfStream sentinel from the callback. The
+                    // preserved buffer is returned unchanged.
+                    if *self.is_paused.lock().unwrap() {
+                        rec.resume();
+                    }
                     match rec.stop() {
                         Ok(buf) => buf,
                         Err(e) => {
@@ -372,6 +381,7 @@ impl AudioRecordingManager {
                 };
 
                 *self.is_recording.lock().unwrap() = false;
+                *self.is_paused.lock().unwrap() = false;
 
                 // On-demand: close the mic after the clip.
                 self.stop_microphone_stream();
@@ -411,6 +421,48 @@ impl AudioRecordingManager {
         )
     }
 
+    /// Pause the microphone without ending the session: capture stops feeding
+    /// audio but the already-dictated buffer is preserved and the session stays
+    /// active (`is_recording()` remains true). No-op if not recording or already
+    /// paused.
+    pub fn pause_recording(&self) {
+        if !self.is_recording() {
+            return;
+        }
+        let mut paused = self.is_paused.lock().unwrap();
+        if *paused {
+            return;
+        }
+        if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+            rec.pause();
+        }
+        *paused = true;
+        debug!("Recording paused");
+    }
+
+    /// Resume the microphone after [`AudioRecordingManager::pause_recording`].
+    /// No-op if not recording or not currently paused.
+    pub fn resume_recording(&self) {
+        if !self.is_recording() {
+            return;
+        }
+        let mut paused = self.is_paused.lock().unwrap();
+        if !*paused {
+            return;
+        }
+        if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+            rec.resume();
+        }
+        *paused = false;
+        debug!("Recording resumed");
+    }
+
+    /// Whether the active recording is currently paused. `is_recording()` stays
+    /// true while paused.
+    pub fn is_paused(&self) -> bool {
+        *self.is_paused.lock().unwrap()
+    }
+
     /// Cancel any ongoing recording without returning audio.
     pub fn cancel_recording(&self) {
         let mut state = self.state.lock().unwrap();
@@ -419,9 +471,14 @@ impl AudioRecordingManager {
             drop(state);
 
             if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+                // Resume a paused stream so the stop-drain completes cleanly.
+                if *self.is_paused.lock().unwrap() {
+                    rec.resume();
+                }
                 let _ = rec.stop();
             }
             *self.is_recording.lock().unwrap() = false;
+            *self.is_paused.lock().unwrap() = false;
             self.stop_microphone_stream();
         }
     }

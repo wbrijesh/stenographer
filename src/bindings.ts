@@ -194,6 +194,26 @@ async changeAppendTrailingSpace(appendTrailingSpace: boolean) : Promise<Result<n
 }
 },
 /**
+ * Whether on-device transcription cleanup (Apple FoundationModels) is
+ * available on this machine. The frontend uses this to decide whether to SHOW
+ * the "Clean up transcription" toggle at all.
+ */
+async isCleanupAvailable() : Promise<boolean> {
+    return await TAURI_INVOKE("is_cleanup_available");
+},
+/**
+ * Validate + persist + emit the cleanup-enabled toggle. Only effective when
+ * `is_cleanup_available()` is true.
+ */
+async changeCleanupEnabled(cleanupEnabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_cleanup_enabled", { cleanupEnabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Validate + persist + emit the start-hidden toggle.
  */
 async changeStartHidden(startHidden: boolean) : Promise<Result<null, string>> {
@@ -541,7 +561,7 @@ export type AppSettings = { trigger_mode_enabled?: boolean; hold_tap_threshold_m
  * Modifier-only bindings (e.g. `"CmdRight"`) use tap detection; bindings
  * with a key (e.g. `"Ctrl+Shift+R"`) fire on the key-down combo.
  */
-trigger_binding?: string; selected_microphone?: string | null; selected_output_device?: string | null; audio_feedback?: boolean; audio_feedback_volume?: number; mute_while_recording?: boolean; selected_model?: string | null; selected_language?: string; translate_to_english?: boolean; model_unload_timeout?: ModelUnloadTimeout; paste_delay_ms?: number; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; append_trailing_space?: boolean; overlay_enabled?: boolean; start_hidden?: boolean; autostart_enabled?: boolean; show_tray_icon?: boolean }
+trigger_binding?: string; selected_microphone?: string | null; selected_output_device?: string | null; audio_feedback?: boolean; audio_feedback_volume?: number; mute_while_recording?: boolean; selected_model?: string | null; selected_language?: string; translate_to_english?: boolean; model_unload_timeout?: ModelUnloadTimeout; paste_delay_ms?: number; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; append_trailing_space?: boolean; cleanup_enabled?: boolean; overlay_enabled?: boolean; start_hidden?: boolean; autostart_enabled?: boolean; show_tray_icon?: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 /**
  * Device descriptor returned to the frontend.

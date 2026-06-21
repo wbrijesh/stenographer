@@ -80,6 +80,11 @@ pub struct AppSettings {
     #[serde(default = "default_append_trailing_space")]
     pub append_trailing_space: bool,
 
+    // on-device cleanup (Apple FoundationModels). On by default, but only
+    // effective when the system language model is actually available.
+    #[serde(default = "default_cleanup_enabled")]
+    pub cleanup_enabled: bool,
+
     // overlay / app
     #[serde(default = "default_overlay_enabled")]
     pub overlay_enabled: bool,
@@ -128,6 +133,9 @@ fn default_auto_submit() -> bool {
 fn default_append_trailing_space() -> bool {
     false
 }
+fn default_cleanup_enabled() -> bool {
+    true
+}
 fn default_overlay_enabled() -> bool {
     true
 }
@@ -159,6 +167,7 @@ pub fn get_default_settings() -> AppSettings {
         auto_submit: default_auto_submit(),
         auto_submit_key: AutoSubmitKey::default(),
         append_trailing_space: default_append_trailing_space(),
+        cleanup_enabled: default_cleanup_enabled(),
         overlay_enabled: default_overlay_enabled(),
         start_hidden: default_start_hidden(),
         autostart_enabled: default_autostart_enabled(),
