@@ -35,18 +35,13 @@ body {
     0 4px 16px rgba(0, 0, 0, 0.35),
     0 0 0 0.5px rgba(0, 0, 0, 0.4);
   color: #f4f4f6;
-  /* Hidden by default; fade in/out driven by the `is-visible` class. */
-  opacity: 0;
-  transform: translateY(4px);
-  transition:
-    opacity 240ms ease-out,
-    transform 240ms ease-out;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-}
-
-.overlay-pill.is-visible {
+  /* Always fully visible. Visibility is owned by the Rust side, which orders
+     the NSPanel front (show) or calls orderOut (hide). The webview never gates
+     its own opacity, so a missed JS event can never leave the pill stuck
+     invisible. */
   opacity: 1;
   transform: translateY(0);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
 .overlay-icon {

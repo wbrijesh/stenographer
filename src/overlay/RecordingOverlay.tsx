@@ -6,8 +6,8 @@ import React, { useEffect, useRef, useState } from "react";
  *
  * Rendered inside a transparent, non-activating NSPanel. It is purely
  * event-driven from the Rust side:
- *   - `show-overlay`  (payload: "recording" | "transcribing") -> show + set state
- *   - `hide-overlay`  -> fade out
+ *   - `show-overlay`  (payload: "recording" | "transcribing") -> set state
+ *   - `hide-overlay`  -> no-op for visibility (Rust orderOut hides the panel)
  *   - `mic-level`     (payload: number[] of bar levels in 0..1, one per bar)
  *                     -> drive the waveform. A bare `number` is also accepted
  *                        (treated as a single center amplitude that ripples out)
@@ -50,13 +50,11 @@ const STRINGS = {
 } as const;
 
 const RecordingOverlay: React.FC = () => {
-  // Initialize visible: panel-ordering is the source of truth for visibility.
-  // The webview only renders once the panel is ordered front, and a
-  // never-displayed WKWebview can defer JS execution and miss the very first
-  // `show-overlay` event. Starting visible means panel-front => pill shown,
-  // regardless of whether the first event landed. The `hide-overlay` listener
-  // still drives the fade-out before Rust orderOut's the panel.
-  const [isVisible, setIsVisible] = useState(true);
+  // Panel ordering (Rust: `order_front_regardless` / `orderOut`) is the SOLE
+  // source of truth for whether the pill is on screen. The pill is therefore
+  // always rendered at full opacity (see `.overlay-pill` in overlay.css) and
+  // the webview never gates its own visibility. A suspended WKWebview that
+  // misses a `show-overlay` event can no longer get stuck invisible.
   const [state, setState] = useState<OverlayState>("recording");
   // Per-bar heights, animated. Newest amplitude is pushed in at the center and
   // ripples outward for an organic waveform.
@@ -67,12 +65,16 @@ const RecordingOverlay: React.FC = () => {
     const unlisteners: Array<() => void> = [];
 
     listen<OverlayState>("show-overlay", (event) => {
+      // Update content only; visibility is panel-driven (Rust orderFront).
       setState(event.payload ?? "recording");
-      setIsVisible(true);
     }).then((u) => unlisteners.push(u));
 
+    // `hide-overlay` is intentionally a no-op for visibility: Rust calls
+    // `orderOut` ~300ms later to remove the panel. We must NOT set a persistent
+    // invisible state here, or a later missed `show-overlay` would leave the
+    // pill stuck hidden once the panel is re-ordered front.
     listen("hide-overlay", () => {
-      setIsVisible(false);
+      // no-op
     }).then((u) => unlisteners.push(u));
 
     listen<MicLevelPayload>("mic-level", (event) => {
@@ -118,7 +120,7 @@ const RecordingOverlay: React.FC = () => {
   };
 
   return (
-    <div className={`overlay-pill ${isVisible ? "is-visible" : ""}`}>
+    <div className="overlay-pill">
       <div className="overlay-icon" aria-hidden>
         {state === "recording" ? <MicGlyph /> : <DotsGlyph />}
       </div>
