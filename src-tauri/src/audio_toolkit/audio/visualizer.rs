@@ -1,12 +1,13 @@
 use rustfft::{num_complex::Complex32, Fft, FftPlanner};
 use std::sync::Arc;
 
-// Lowered the sensitive dB window and raised gain/curve so the waveform reacts
-// to normal speaking volume instead of only loud shouting.
-const DB_MIN: f32 = -72.0;
-const DB_MAX: f32 = -30.0;
-const GAIN: f32 = 1.7;
-const CURVE_POWER: f32 = 0.55;
+// Tuned for high sensitivity: the sensitive dB window is shifted down toward
+// quiet input, while the higher gain and lower curve power lift low/mid levels
+// hard so the waveform reacts to normal (and even quiet) speaking volume.
+const DB_MIN: f32 = -90.0;
+const DB_MAX: f32 = -40.0;
+const GAIN: f32 = 2.2;
+const CURVE_POWER: f32 = 0.5;
 
 pub struct AudioVisualiser {
     fft: Arc<dyn Fft<f32>>,
@@ -106,6 +107,9 @@ impl AudioVisualiser {
         // Compute power spectrum and bucket levels
         let mut buckets = vec![0.0; self.buckets];
 
+        // Track the loudest raw dB across buckets this frame for calibration logging.
+        let mut max_db = f32::NEG_INFINITY;
+
         for (bucket_idx, &(start_bin, end_bin)) in self.bucket_ranges.iter().enumerate() {
             if start_bin >= end_bin || end_bin > self.fft_input.len() / 2 {
                 continue;
@@ -134,6 +138,10 @@ impl AudioVisualiser {
                     NOISE_ALPHA * db + (1.0 - NOISE_ALPHA) * self.noise_floor[bucket_idx];
             }
 
+            if db > max_db {
+                max_db = db;
+            }
+
             // Map configurable dB range to 0-1 with gain and curve shaping
             let normalized = ((db - DB_MIN) / (DB_MAX - DB_MIN)).clamp(0.0, 1.0);
             buckets[bucket_idx] = (normalized * GAIN).powf(CURVE_POWER).clamp(0.0, 1.0);
@@ -146,6 +154,16 @@ impl AudioVisualiser {
 
         // Clear processed samples from buffer
         self.buffer.clear();
+
+        // Throttled calibration diagnostic: log the raw dB range and final level
+        // every 15th processed frame so DB_MIN/DB_MAX can be tuned precisely.
+        // (Remove once calibration is complete.)
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static FRAME_COUNTER: AtomicU64 = AtomicU64::new(0);
+        if FRAME_COUNTER.fetch_add(1, Ordering::Relaxed) % 15 == 0 {
+            let max_level = buckets.iter().cloned().fold(0.0_f32, f32::max);
+            log::info!("viz: max_db={max_db:.1} max_level={max_level:.3}");
+        }
 
         Some(buckets)
     }

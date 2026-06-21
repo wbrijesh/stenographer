@@ -21,7 +21,7 @@
     </linearGradient>
 
     <!-- The hero S: vivid blue (top) -> deep indigo/navy (bottom) -->
-    <linearGradient id="sFill" x1="512" y1="232" x2="512" y2="612" gradientUnits="userSpaceOnUse">
+    <linearGradient id="sFill" x1="512" y1="268" x2="512" y2="756" gradientUnits="userSpaceOnUse">
       <stop offset="0"    stop-color="#5B7CFA"/>
       <stop offset="0.5"  stop-color="#3B49C8"/>
       <stop offset="1"    stop-color="#1B1E6E"/>
@@ -69,35 +69,20 @@
   </g>
 
   <g filter="url(#glyphShadow)">
-    <!-- The hero S: bold stylized capital S, upper ~60%, slightly left of center.
-         Drawn as a thick stroked flowing path with rounded terminals. -->
-    <path d="M628 286
-             C 588 246 528 230 464 242
-             C 392 256 348 306 352 366
-             C 356 428 410 458 482 476
-             C 548 492 580 506 582 540
-             C 584 578 540 602 484 602
-             C 428 602 388 586 358 552"
+    <!-- The hero S: bold stylized capital S, optically centered in the squircle,
+         filling ~60% of its width/height. Thick stroked flowing path with
+         rounded terminals. -->
+    <path d="M676 318
+             C 624 268 546 246 462 262
+             C 368 280 310 346 316 424
+             C 322 504 392 544 486 568
+             C 572 590 612 610 614 654
+             C 616 704 558 736 484 736
+             C 410 736 358 714 318 668"
           fill="none"
           stroke="url(#sFill)"
-          stroke-width="92"
+          stroke-width="104"
           stroke-linecap="round"
           stroke-linejoin="round"/>
-
-    <!-- Soundwave: 11 rounded bars beneath the S, common baseline (y=830),
-         symmetric organic wave, tallest near the middle -->
-    <g transform="translate(-10,0)">
-      <rect x="262" y="794" width="32" height="36"  rx="16" fill="#5B7CFA"/>
-      <rect x="308" y="758" width="32" height="72"  rx="16" fill="#4F6CF5"/>
-      <rect x="354" y="714" width="32" height="116" rx="16" fill="#4263EB"/>
-      <rect x="400" y="746" width="32" height="84"  rx="16" fill="#3B49C8"/>
-      <rect x="446" y="690" width="32" height="140" rx="16" fill="#3340BE"/>
-      <rect x="492" y="662" width="32" height="168" rx="16" fill="#2D2F8F"/>
-      <rect x="538" y="690" width="32" height="140" rx="16" fill="#2A2C84"/>
-      <rect x="584" y="746" width="32" height="84"  rx="16" fill="#24276F"/>
-      <rect x="630" y="714" width="32" height="116" rx="16" fill="#1F2270"/>
-      <rect x="676" y="758" width="32" height="72"  rx="16" fill="#1B1E6E"/>
-      <rect x="722" y="794" width="32" height="36"  rx="16" fill="#1B1E6E"/>
-    </g>
   </g>
 </svg>
