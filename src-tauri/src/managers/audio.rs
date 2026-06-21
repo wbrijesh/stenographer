@@ -9,7 +9,7 @@
 #![allow(dead_code)]
 
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use log::{debug, error, info};
 use serde::Serialize;
@@ -387,6 +387,20 @@ impl AudioRecordingManager {
                 }
             }
             _ => Vec::new(),
+        }
+    }
+
+    /// Snapshot the live audio captured so far (16 kHz mono, VAD-filtered) for
+    /// streaming partial transcription. Returns empty if not currently
+    /// recording. No padding — partials don't need it.
+    pub fn current_samples(&self) -> Vec<f32> {
+        if !self.is_recording() {
+            return Vec::new();
+        }
+        if let Some(rec) = self.recorder.lock().unwrap().as_ref() {
+            rec.snapshot()
+        } else {
+            Vec::new()
         }
     }
 

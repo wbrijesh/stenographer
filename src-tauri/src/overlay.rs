@@ -47,8 +47,8 @@ const OVERLAY_URL: &str = "src/overlay/index.html";
 const OVERLAY_LABEL: &str = "recording_overlay";
 
 /// Overlay pill dimensions, in logical points.
-const OVERLAY_WIDTH: f64 = 172.0;
-const OVERLAY_HEIGHT: f64 = 36.0;
+const OVERLAY_WIDTH: f64 = 420.0;
+const OVERLAY_HEIGHT: f64 = 56.0;
 /// Gap between the pill and the bottom edge of the monitor, in points.
 const OVERLAY_BOTTOM_OFFSET: f64 = 56.0;
 

@@ -18,9 +18,16 @@
 //!   → cleanup → `notify_processing_finished`.
 //! - `cancel` is quick and stays on the actor thread.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::{AppHandle, Listener, Manager};
+
+/// Set while a recording is active so the live (streaming) partial-transcription
+/// loop runs. Cleared first thing on stop/cancel so the loop releases the
+/// transcription engine before the authoritative final transcription runs.
+static LIVE_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 use crate::coordinator::{Coordinator, PipelineActions, TriggerInput};
 use crate::managers::audio::AudioRecordingManager;
@@ -82,10 +89,52 @@ fn record_start(app: &AppHandle) {
         if let Some(coordinator) = app.try_state::<Arc<Coordinator>>() {
             coordinator.notify_processing_finished();
         }
+        return;
+    }
+
+    // Start the live (streaming) partial-transcription loop. It periodically
+    // snapshots the audio-so-far, transcribes it, and emits the growing text to
+    // the overlay. The authoritative final transcription at stop is unchanged.
+    LIVE_ACTIVE.store(true, Ordering::Release);
+    let live_app = app.clone();
+    std::thread::spawn(move || {
+        live_transcription_loop(live_app);
+    });
+}
+
+/// The live (streaming) partial-transcription loop. Runs on its own thread while
+/// `LIVE_ACTIVE` is set. Managed state is fetched INSIDE the loop (mirroring the
+/// rest of pipeline.rs) so we don't capture manager `Arc`s.
+fn live_transcription_loop(app: AppHandle) {
+    loop {
+        if !LIVE_ACTIVE.load(Ordering::Acquire) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(2500));
+        if !LIVE_ACTIVE.load(Ordering::Acquire) {
+            break;
+        }
+
+        let audio = app.state::<Arc<AudioRecordingManager>>().current_samples();
+        // ~0.5s @ 16kHz — skip tiny/empty snapshots.
+        if audio.len() >= 8000 {
+            if let Ok(text) = app.state::<Arc<TranscriptionManager>>().transcribe(audio) {
+                if LIVE_ACTIVE.load(Ordering::Acquire) && !text.trim().is_empty() {
+                    use tauri::Emitter;
+                    let _ = app.emit_to("recording_overlay", "partial-transcript", text.clone());
+                    let _ = app.emit("partial-transcript", text);
+                }
+            }
+        }
     }
 }
 
 fn record_stop(app: AppHandle) {
+    // Stop the live partial-transcription loop FIRST, before stop_recording /
+    // the final transcribe, so it releases the transcription engine before the
+    // authoritative final transcription runs.
+    LIVE_ACTIVE.store(false, Ordering::Release);
+
     // Off the actor thread: transcription can take seconds.
     std::thread::spawn(move || {
         // Overlay/tray are AppKit and must run on the main thread.
@@ -128,6 +177,9 @@ fn record_stop(app: AppHandle) {
 }
 
 fn cancel(app: &AppHandle) {
+    // Stop the live partial-transcription loop.
+    LIVE_ACTIVE.store(false, Ordering::Release);
+
     let audio = app.state::<Arc<AudioRecordingManager>>();
     audio.cancel_recording();
     // Overlay/tray are AppKit and must run on the main thread.

@@ -3,6 +3,9 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Match the 420x56 logical panel so the pill fills it exactly. */
+  width: 420px;
+  height: 56px;
   background: transparent;
   overflow: hidden;
   /* The whole webview is the overlay; nothing should select or scroll. */
@@ -21,16 +24,18 @@ body {
 
 .overlay-pill {
   box-sizing: border-box;
-  height: 36px;
-  width: 172px;
+  /* Fill the 420x56 panel, leaving a hair of margin so the shadow/border are
+     not clipped by the webview edge. */
+  height: 52px;
+  width: 412px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
+  gap: 10px;
+  padding: 0 14px;
   background: rgba(20, 20, 22, 0.82);
   border: 0.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 26px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.35),
     0 0 0 0.5px rgba(0, 0, 0, 0.4);
@@ -44,6 +49,13 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
+/* Leading cluster: mic glyph plus an optional compact waveform beside it. */
+.overlay-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .overlay-icon {
   display: flex;
   align-items: center;
@@ -54,14 +66,35 @@ body {
 .overlay-center {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* Left-align so growing transcript text reads naturally; the placeholder
+     waveform centers itself within this flex row. */
+  justify-content: flex-start;
   min-width: 0;
+  /* Reserve vertical space so swapping waveform <-> text never jumps. */
+  height: 24px;
 }
 
 .overlay-right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+/* --- Live transcript text --- */
+.overlay-transcript {
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.2;
+  color: #e9e9ec;
+  letter-spacing: 0.1px;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  /* `dir="rtl"` (set on the element) anchors the END of the LTR text to the
+     visible edge so the most recent words stay in view as the transcript
+     grows; the ellipsis then appears at the (visual) start. */
+  text-overflow: ellipsis;
+  text-align: left;
 }
 
 /* --- Waveform --- */
@@ -71,6 +104,11 @@ body {
   justify-content: center;
   gap: 3px;
   height: 24px;
+}
+
+.waveform--compact {
+  height: 20px;
+  gap: 2px;
 }
 
 .wave-bar {
@@ -83,9 +121,13 @@ body {
     opacity 120ms ease-out;
 }
 
+.waveform--compact .wave-bar {
+  width: 3px;
+}
+
 /* --- Transcribing --- */
 .overlay-text {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: #e7e7ea;
   letter-spacing: 0.2px;
@@ -104,8 +146,8 @@ body {
 
 /* --- Cancel button --- */
 .cancel-btn {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
   border-radius: 50%;
