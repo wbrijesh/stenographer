@@ -37,6 +37,8 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 use tauri::WebviewUrl;
 
 #[cfg(target_os = "macos")]
+use tauri_nspanel::objc2_app_kit::NSWindowStyleMask;
+#[cfg(target_os = "macos")]
 use tauri_nspanel::{tauri_panel, CollectionBehavior, ManagerExt, PanelBuilder, PanelLevel};
 
 // --- UI / layout constants ---------------------------------------------------
@@ -262,11 +264,29 @@ pub fn create_overlay(app: &AppHandle) {
         .has_shadow(false)
         .transparent(true)
         .corner_radius(0.0)
-        .with_window(|w| w.decorations(false).transparent(true))
+        // Create the underlying Tauri window HIDDEN. Tauri builds the overlay as a
+        // *normal* window before swizzling it into an NSPanel; if that window is
+        // visible during that gap, Aerospace detects a normal window, assigns it to
+        // the launch Space, and later follows the panel back to that Space (the
+        // exact workspace-switch regression). Building hidden avoids that flash.
+        .with_window(|w| w.decorations(false).transparent(true).visible(false))
         .collection_behavior(overlay_collection_behavior())
         .build()
     {
         Ok(panel) => {
+            // Force the non-activating panel style mask AFTER the swizzle. This is
+            // what makes tiling WMs (Aerospace) treat the window as a utility panel
+            // they should ignore, and guarantees showing it never activates the app.
+            // `NonactivatingPanel` is itself a borderless mask (Borderless == 0), so
+            // this keeps the window borderless/transparent.
+            panel.set_style_mask(
+                NSWindowStyleMask::NonactivatingPanel | NSWindowStyleMask::Borderless,
+            );
+
+            // Don't let AppKit hide the panel when the (never-active) app
+            // "deactivates" — it must stay put on the active Space.
+            panel.set_hides_on_deactivate(false);
+
             // Start hidden; only shown while recording / transcribing.
             panel.hide();
             log::info!("Recording overlay panel created (hidden)");
