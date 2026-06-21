@@ -114,3 +114,12 @@ export function ExternalLinkIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function DiagnosticsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12h3.5l2 6 4-15 2 9h2.5" />
+      <circle cx="20.5" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}

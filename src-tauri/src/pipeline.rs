@@ -62,6 +62,7 @@ fn on_main(app: &AppHandle, f: impl FnOnce(AppHandle) + Send + 'static) {
 }
 
 fn record_start(app: &AppHandle) {
+    crate::metrics::record_recording_started();
     // Overlay/tray are AppKit and must run on the main thread.
     on_main(app, |app| {
         tray::set_state(&app, TrayState::Recording);
@@ -151,16 +152,22 @@ fn record_stop(app: AppHandle) {
             log::info!("record_stop: no audio captured");
         } else {
             let transcription = app.state::<Arc<TranscriptionManager>>();
-            match transcription.transcribe(samples) {
+            let transcribe_start = std::time::Instant::now();
+            let transcribe_result = transcription.transcribe(samples);
+            let transcription_ms = transcribe_start.elapsed().as_millis() as u64;
+            match transcribe_result {
                 Ok(text) if !text.trim().is_empty() => {
                     // On-device cleanup (Apple FoundationModels). Only when the
                     // user has it enabled AND the model is available; falls back
                     // to the raw text on any cleanup failure. The overlay keeps
                     // showing the transcribing state during this ~1-2s.
+                    let mut cleanup_ms: Option<u64> = None;
                     let to_paste = if crate::settings::get_settings(&app).cleanup_enabled
                         && crate::llm::is_available()
                     {
+                        let cleanup_start = std::time::Instant::now();
                         let cleaned = crate::llm::cleanup(&text).unwrap_or_else(|| text.clone());
+                        cleanup_ms = Some(cleanup_start.elapsed().as_millis() as u64);
                         log::info!(
                             "cleanup: raw {} chars -> cleaned {} chars",
                             text.len(),
@@ -172,12 +179,23 @@ fn record_stop(app: AppHandle) {
                     };
                     // `clipboard::paste` self-marshals to the main thread and
                     // blocks; do NOT wrap it in run_on_main_thread here.
-                    if let Err(e) = clipboard::paste(to_paste, app.clone()) {
-                        log::error!("paste failed: {e}");
+                    match clipboard::paste(to_paste.clone(), app.clone()) {
+                        Ok(_) => crate::metrics::record_completed(
+                            transcription_ms,
+                            cleanup_ms,
+                            &to_paste,
+                        ),
+                        Err(e) => {
+                            log::error!("paste failed: {e}");
+                            crate::metrics::record_error();
+                        }
                     }
                 }
                 Ok(_) => log::info!("record_stop: transcription empty, nothing to paste"),
-                Err(e) => log::error!("transcription failed: {e}"),
+                Err(e) => {
+                    log::error!("transcription failed: {e}");
+                    crate::metrics::record_error();
+                }
             }
         }
 
@@ -194,6 +212,7 @@ fn record_stop(app: AppHandle) {
 }
 
 fn cancel(app: &AppHandle) {
+    crate::metrics::record_cancelled();
     // Stop the live partial-transcription loop.
     LIVE_ACTIVE.store(false, Ordering::Release);
 

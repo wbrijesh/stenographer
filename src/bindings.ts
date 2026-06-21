@@ -279,6 +279,28 @@ async checkFnKeyBehavior() : Promise<FnKeyBehavior> {
     return await TAURI_INVOKE("check_fn_key_behavior");
 },
 /**
+ * Return a snapshot of the process-global pipeline metrics for the settings
+ * window's observability panel.
+ */
+async getMetrics() : Promise<Metrics> {
+    return await TAURI_INVOKE("get_metrics");
+},
+/**
+ * Return the last `lines` lines of the application log file, newest line LAST
+ * (i.e. chronological order, matching how the file is written).
+ * 
+ * The log is produced by `tauri-plugin-log`'s `LogDir` target with
+ * `file_name: Some("stenographer")`, so the file is `stenographer.log` inside
+ * the app's log directory. We resolve it via `app.path().app_log_dir()`, and
+ * fall back to the standard macOS path
+ * `~/Library/Logs/dev.brijesh.stenographer/stenographer.log` if that fails or
+ * the file is absent. `lines` is capped at 1000. A missing/unreadable file
+ * yields an empty vec.
+ */
+async getRecentLogs(lines: number) : Promise<string[]> {
+    return await TAURI_INVOKE("get_recent_logs", { lines });
+},
+/**
  * List available input (microphone) devices.
  */
 async getAvailableMicrophones() : Promise<DeviceInfo[]> {
@@ -588,6 +610,59 @@ ok: boolean;
  * Raw `AppleFnUsageType` value; `-1` if absent/unreadable.
  */
 current: number }
+/**
+ * A serializable snapshot of the current process metrics. Returned by the
+ * `get_metrics` command and consumed by the settings UI.
+ */
+export type Metrics = { 
+/**
+ * Recording sessions started.
+ */
+recordings: number; 
+/**
+ * Sessions transcribed + pasted successfully.
+ */
+completed: number; 
+/**
+ * Sessions cancelled by the user.
+ */
+cancelled: number; 
+/**
+ * Count of final (authoritative) transcriptions produced.
+ */
+transcriptions: number; 
+/**
+ * Duration of the most recent final transcription, in milliseconds.
+ */
+last_transcription_ms: number; 
+/**
+ * Running average final-transcription duration, in milliseconds.
+ */
+avg_transcription_ms: number; 
+/**
+ * Count of AI cleanups run.
+ */
+cleanups: number; 
+/**
+ * Duration of the most recent cleanup, in milliseconds.
+ */
+last_cleanup_ms: number; 
+/**
+ * Running average cleanup duration, in milliseconds.
+ */
+avg_cleanup_ms: number; 
+/**
+ * Total words pasted across all completed sessions.
+ */
+words_dictated: number; 
+/**
+ * Transcription / paste / audio errors observed.
+ */
+errors: number; 
+/**
+ * Process start time (Unix seconds), set on first metrics access.
+ */
+session_started_unix: number }
 export type ModelInfo = { id: string; name: string; description: string; filename: string; url: string | null; sha256: string | null; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; 
 /**
  * 0.0 to 1.0, higher is more accurate

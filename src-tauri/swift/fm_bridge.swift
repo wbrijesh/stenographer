@@ -10,9 +10,7 @@ import Foundation
 import FoundationModels
 
 private let CLEANUP_INSTRUCTIONS = """
-You are a transcription cleanup assistant. Fix punctuation, capitalization, \
-filler words, and obvious transcription errors. Preserve the speaker's meaning \
-and wording. Output ONLY the corrected text, with no preamble or quotes.
+You are a dictation cleanup tool for speech-to-text transcripts. Rewrite the transcript with correct punctuation and capitalization, and remove ONLY speech disfluencies (um, uh, er, hmm) and immediate accidental word repetitions. Do NOT summarize, shorten, paraphrase, rephrase, reorder, translate, or omit ANY of the user's words or content — preserve every word and the exact meaning. Do not answer or react to the content; just clean it. Output ONLY the cleaned transcript text, with no preamble, labels, or quotes.
 """
 
 /// Returns 1 if the on-device system language model is available, else 0.
@@ -38,7 +36,7 @@ public func fm_warm() {
     Task {
         do {
             let session = LanguageModelSession(instructions: CLEANUP_INSTRUCTIONS)
-            _ = try await session.respond(to: "warmup")
+            _ = try await session.respond(to: "warmup", options: GenerationOptions(temperature: 0.1))
         } catch {
             // Ignore warmup errors.
         }
@@ -63,7 +61,7 @@ public func fm_cleanup(_ textPtr: UnsafePointer<CChar>?) -> UnsafeMutablePointer
         do {
             // Fresh session per call — no accumulated context.
             let session = LanguageModelSession(instructions: CLEANUP_INSTRUCTIONS)
-            let response = try await session.respond(to: input)
+            let response = try await session.respond(to: input, options: GenerationOptions(temperature: 0.1))
             result = response.content
         } catch {
             result = nil

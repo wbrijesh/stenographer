@@ -4,7 +4,9 @@ pub mod permissions;
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+
+use crate::metrics::Metrics;
 
 use crate::managers::audio::AudioRecordingManager;
 use crate::settings::{
@@ -409,4 +411,60 @@ fn read_apple_fn_usage_type() -> Option<i64> {
 
     let text = String::from_utf8_lossy(&output.stdout);
     text.trim().parse::<i64>().ok()
+}
+
+/// Return a snapshot of the process-global pipeline metrics for the settings
+/// window's observability panel.
+#[tauri::command]
+#[specta::specta]
+pub fn get_metrics() -> Metrics {
+    crate::metrics::snapshot()
+}
+
+/// Return the last `lines` lines of the application log file, newest line LAST
+/// (i.e. chronological order, matching how the file is written).
+///
+/// The log is produced by `tauri-plugin-log`'s `LogDir` target with
+/// `file_name: Some("stenographer")`, so the file is `stenographer.log` inside
+/// the app's log directory. We resolve it via `app.path().app_log_dir()`, and
+/// fall back to the standard macOS path
+/// `~/Library/Logs/dev.brijesh.stenographer/stenographer.log` if that fails or
+/// the file is absent. `lines` is capped at 1000. A missing/unreadable file
+/// yields an empty vec.
+#[tauri::command]
+#[specta::specta]
+pub fn get_recent_logs(app: AppHandle, lines: u32) -> Vec<String> {
+    const MAX_LINES: u32 = 1000;
+    const LOG_FILE_NAME: &str = "stenographer.log";
+
+    let cap = lines.min(MAX_LINES) as usize;
+    if cap == 0 {
+        return Vec::new();
+    }
+
+    // Candidate paths: the resolved app log dir first, then the standard macOS
+    // location as a fallback.
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(dir) = app.path().app_log_dir() {
+        candidates.push(dir.join(LOG_FILE_NAME));
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        candidates.push(
+            std::path::Path::new(&home)
+                .join("Library/Logs/dev.brijesh.stenographer")
+                .join(LOG_FILE_NAME),
+        );
+    }
+
+    let contents = candidates
+        .iter()
+        .find_map(|path| std::fs::read_to_string(path).ok());
+
+    let Some(contents) = contents else {
+        return Vec::new();
+    };
+
+    let all: Vec<&str> = contents.lines().collect();
+    let start = all.len().saturating_sub(cap);
+    all[start..].iter().map(|s| s.to_string()).collect()
 }

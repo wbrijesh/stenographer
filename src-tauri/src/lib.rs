@@ -12,6 +12,7 @@ mod coordinator;
 mod input;
 mod llm;
 mod managers;
+mod metrics;
 mod overlay;
 mod pipeline;
 mod shortcut;
@@ -58,6 +59,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::change_show_tray_icon,
         commands::show_main_window,
         commands::check_fn_key_behavior,
+        commands::get_metrics,
+        commands::get_recent_logs,
         // --- audio devices / lifecycle / permissions ---
         commands::audio::get_available_microphones,
         commands::audio::get_available_output_devices,

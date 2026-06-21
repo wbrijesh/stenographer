@@ -3,11 +3,13 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { SidebarItem } from "@/components/ui";
 import {
   AdvancedSettings,
+  DiagnosticsSettings,
   GeneralSettings,
   ModelsSettings,
 } from "@/components/settings";
 import {
   AdvancedIcon,
+  DiagnosticsIcon,
   GeneralIcon,
   ModelsIcon,
 } from "@/components/icons";
@@ -16,13 +18,13 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import type { AppSettings } from "@/bindings";
 import "./App.css";
 
-type SectionId = "general" | "models" | "advanced";
+type SectionId = "general" | "models" | "advanced" | "diagnostics";
 
 interface SectionDef {
   id: SectionId;
   label: string;
   icon: React.ReactNode;
-  render: (settings: AppSettings) => React.ReactNode;
+  render: (settings: AppSettings, active: boolean) => React.ReactNode;
 }
 
 const SECTIONS: SectionDef[] = [
@@ -43,6 +45,12 @@ const SECTIONS: SectionDef[] = [
     label: "Advanced",
     icon: <AdvancedIcon />,
     render: (s) => <AdvancedSettings settings={s} />,
+  },
+  {
+    id: "diagnostics",
+    label: "Diagnostics",
+    icon: <DiagnosticsIcon />,
+    render: (_s, active) => <DiagnosticsSettings active={active} />,
   },
 ];
 
@@ -104,7 +112,7 @@ function SettingsApp() {
           {loading && !settings && (
             <p className="text-sm text-black/50">Loading settings…</p>
           )}
-          {settings && current.render(settings)}
+          {settings && current.render(settings, active === current.id)}
         </div>
       </main>
     </div>
