@@ -123,3 +123,12 @@ export function DiagnosticsIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function HistoryIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12a9 9 0 1 0 3-6.7M3 4v3.5h3.5" />
+      <path d="M12 7v5l3.5 2" />
+    </Icon>
+  );
+}

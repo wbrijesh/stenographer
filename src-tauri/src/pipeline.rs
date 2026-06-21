@@ -198,6 +198,10 @@ fn record_stop(app: AppHandle) {
                             crate::metrics::record_error();
                         }
                     }
+                    // Record the FINAL transcription in history (newest first).
+                    // Done after the paste attempt; persists regardless of
+                    // whether the paste itself succeeded.
+                    crate::history::record(&app, &to_paste);
                 }
                 Ok(_) => log::info!("record_stop: transcription empty, nothing to paste"),
                 Err(e) => {

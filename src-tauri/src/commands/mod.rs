@@ -522,3 +522,31 @@ pub fn get_recent_logs(app: AppHandle, lines: u32) -> Vec<String> {
     let start = all.len().saturating_sub(cap);
     all[start..].iter().map(|s| s.to_string()).collect()
 }
+
+/// Return the persisted transcription history, newest first (up to the last 10
+/// final transcriptions).
+#[tauri::command]
+#[specta::specta]
+pub fn get_history(app: AppHandle) -> Vec<crate::history::HistoryEntry> {
+    crate::history::get(&app)
+}
+
+/// Clear the persisted transcription history.
+#[tauri::command]
+#[specta::specta]
+pub fn clear_history(app: AppHandle) {
+    crate::history::clear(&app);
+}
+
+/// Set the system clipboard contents to `text` (used by the history "Copy"
+/// button). This only writes the clipboard — it does NOT synthesize a paste —
+/// reusing the same `tauri-plugin-clipboard-manager` mechanism as the paste
+/// pipeline in `clipboard.rs`.
+#[tauri::command]
+#[specta::specta]
+pub fn copy_text(app: AppHandle, text: String) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    app.clipboard()
+        .write_text(text)
+        .map_err(|e| format!("Failed to write to clipboard: {}", e))
+}

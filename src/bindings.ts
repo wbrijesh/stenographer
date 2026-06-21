@@ -359,6 +359,33 @@ async getRecentLogs(lines: number) : Promise<string[]> {
     return await TAURI_INVOKE("get_recent_logs", { lines });
 },
 /**
+ * Return the persisted transcription history, newest first (up to the last 10
+ * final transcriptions).
+ */
+async getHistory() : Promise<HistoryEntry[]> {
+    return await TAURI_INVOKE("get_history");
+},
+/**
+ * Clear the persisted transcription history.
+ */
+async clearHistory() : Promise<void> {
+    await TAURI_INVOKE("clear_history");
+},
+/**
+ * Set the system clipboard contents to `text` (used by the history "Copy"
+ * button). This only writes the clipboard — it does NOT synthesize a paste —
+ * reusing the same `tauri-plugin-clipboard-manager` mechanism as the paste
+ * pipeline in `clipboard.rs`.
+ */
+async copyText(text: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("copy_text", { text }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * List available input (microphone) devices.
  */
 async getAvailableMicrophones() : Promise<DeviceInfo[]> {
@@ -668,6 +695,18 @@ ok: boolean;
  * Raw `AppleFnUsageType` value; `-1` if absent/unreadable.
  */
 current: number }
+/**
+ * A single recorded transcription.
+ */
+export type HistoryEntry = { 
+/**
+ * The final transcription text that was pasted.
+ */
+text: string; 
+/**
+ * When it was recorded, as seconds since the Unix epoch.
+ */
+timestamp_unix: number }
 /**
  * A serializable snapshot of the current process metrics. Returned by the
  * `get_metrics` command and consumed by the settings UI.

@@ -9,6 +9,7 @@ mod audio_feedback;
 mod audio_toolkit;
 mod clipboard;
 mod coordinator;
+mod history;
 mod input;
 mod llm;
 mod managers;
@@ -66,6 +67,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::check_fn_key_behavior,
         commands::get_metrics,
         commands::get_recent_logs,
+        commands::get_history,
+        commands::clear_history,
+        commands::copy_text,
         // --- audio devices / lifecycle / permissions ---
         commands::audio::get_available_microphones,
         commands::audio::get_available_output_devices,

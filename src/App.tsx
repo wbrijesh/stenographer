@@ -5,12 +5,14 @@ import {
   AdvancedSettings,
   DiagnosticsSettings,
   GeneralSettings,
+  HistorySettings,
   ModelsSettings,
 } from "@/components/settings";
 import {
   AdvancedIcon,
   DiagnosticsIcon,
   GeneralIcon,
+  HistoryIcon,
   ModelsIcon,
 } from "@/components/icons";
 import { Onboarding } from "@/components/onboarding/Onboarding";
@@ -18,7 +20,12 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import type { AppSettings } from "@/bindings";
 import "./App.css";
 
-type SectionId = "general" | "models" | "advanced" | "diagnostics";
+type SectionId =
+  | "general"
+  | "models"
+  | "advanced"
+  | "diagnostics"
+  | "history";
 
 interface SectionDef {
   id: SectionId;
@@ -51,6 +58,12 @@ const SECTIONS: SectionDef[] = [
     label: "Diagnostics",
     icon: <DiagnosticsIcon />,
     render: (_s, active) => <DiagnosticsSettings active={active} />,
+  },
+  {
+    id: "history",
+    label: "History",
+    icon: <HistoryIcon />,
+    render: (_s, active) => <HistorySettings active={active} />,
   },
 ];
 
