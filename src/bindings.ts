@@ -308,6 +308,19 @@ async showMainWindow() : Promise<Result<null, string>> {
 }
 },
 /**
+ * Open (show + focus) the main Settings window. Invoked from the recording
+ * overlay's gear button so Settings is reachable even when the menu-bar icon
+ * is disabled. Thin wrapper over [`crate::show_main_window`].
+ */
+async openSettings() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Detect the macOS "Press 🌐 to…" setting so the frontend can show a one-time
  * nudge when Fn won't work as a push-to-talk trigger.
  * 

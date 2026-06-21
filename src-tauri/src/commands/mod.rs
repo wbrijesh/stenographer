@@ -384,6 +384,16 @@ pub fn show_main_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Open (show + focus) the main Settings window. Invoked from the recording
+/// overlay's gear button so Settings is reachable even when the menu-bar icon
+/// is disabled. Thin wrapper over [`crate::show_main_window`].
+#[tauri::command]
+#[specta::specta]
+pub fn open_settings(app: AppHandle) -> Result<(), String> {
+    crate::show_main_window(&app);
+    Ok(())
+}
+
 /// Result of inspecting the macOS "Press 🌐 to…" (Globe/Fn key) behavior.
 ///
 /// `ok` is `true` when Fn is safe to use as a push-to-talk trigger — i.e. the

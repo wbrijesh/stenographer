@@ -62,6 +62,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::change_autostart_enabled,
         commands::change_show_tray_icon,
         commands::show_main_window,
+        commands::open_settings,
         commands::check_fn_key_behavior,
         commands::get_metrics,
         commands::get_recent_logs,

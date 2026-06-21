@@ -1,6 +1,8 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { commands } from "@/bindings";
+
 /**
  * The recording overlay panel.
  *
@@ -67,6 +69,7 @@ const STRINGS = {
   transcribing: "Transcribing…",
   cancelLabel: "Cancel recording",
   recordingLabel: "Recording",
+  settingsLabel: "Open Settings",
 } as const;
 
 const RecordingOverlay: React.FC = () => {
@@ -189,6 +192,13 @@ const RecordingOverlay: React.FC = () => {
     void emit("overlay-cancel");
   };
 
+  // Open the main Settings window. This is a critical escape hatch: with the
+  // menu-bar icon disabled, the overlay's gear is the only way in. It must NOT
+  // touch recording state — just show Settings.
+  const onSettings = (): void => {
+    void commands.openSettings();
+  };
+
   // The user has taken over the field: from now on, partials must not clobber
   // their text. Set on focus so even a click-with-no-typing locks the field.
   const markUserEdited = (): void => {
@@ -282,15 +292,27 @@ const RecordingOverlay: React.FC = () => {
           </span>
         </div>
 
-        <button
-          type="button"
-          className="cancel-btn"
-          aria-label={STRINGS.cancelLabel}
-          title={STRINGS.cancelLabel}
-          onClick={onCancel}
-        >
-          <CancelGlyph />
-        </button>
+        <div className="overlay-controls-right">
+          <button
+            type="button"
+            className="settings-btn"
+            aria-label={STRINGS.settingsLabel}
+            title={STRINGS.settingsLabel}
+            onClick={onSettings}
+          >
+            <SettingsGlyph />
+          </button>
+
+          <button
+            type="button"
+            className="cancel-btn"
+            aria-label={STRINGS.cancelLabel}
+            title={STRINGS.cancelLabel}
+            onClick={onCancel}
+          >
+            <CancelGlyph />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -301,6 +323,18 @@ const MicGlyph: React.FC = () => (
     <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" />
     <path
       d="M5 11a7 7 0 0 0 14 0M12 18v3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const SettingsGlyph: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+    <path
+      d="M12 2v3M12 19v3M4.2 6.6l2.1 2.1M17.7 15.3l2.1 2.1M2 12h3M19 12h3M4.2 17.4l2.1-2.1M17.7 8.7l2.1-2.1"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"

@@ -181,6 +181,44 @@ body {
   }
 }
 
+/* Right-hand control group: settings gear + cancel, kept tight together. */
+.overlay-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* --- Settings (gear) button (bottom-right, left of cancel) --- */
+/* Shares the cancel button's size/shape language but uses a neutral hover so
+   it doesn't read as a destructive action. */
+.settings-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #cfcfd4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 100ms ease-out;
+}
+
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.settings-btn:active {
+  transform: scale(0.94);
+}
+
 /* --- Cancel button (bottom-right) --- */
 .cancel-btn {
   width: 26px;
