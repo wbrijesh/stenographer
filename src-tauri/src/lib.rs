@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
+use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKind};
 use tauri_specta::{collect_commands, Builder};
 
 use crate::settings::load_or_create_app_settings;
@@ -114,8 +114,88 @@ pub fn show_main_window(app: &AppHandle) {
     log::error!("Main window not found");
 }
 
+/// Prune the on-disk log file to roughly the last hour at startup.
+///
+/// This runs BEFORE the Tauri app (and thus the log plugin) opens the file, so
+/// it must locate the log path without an `AppHandle`. On macOS the
+/// `tauri-plugin-log` `LogDir` target writes to
+/// `~/Library/Logs/<bundle-id>/<file_name>.log`; deriving it directly from
+/// `$HOME` is intentional here.
+///
+/// The default plugin formatter emits lines prefixed with `[YYYY-MM-DD][HH:MM:SS]`
+/// in **UTC** (the plugin's default timezone strategy), so we parse that leading
+/// timestamp and keep only lines within the last hour of `Utc::now()`. Lines
+/// without a parseable leading timestamp (e.g. multi-line continuations) inherit
+/// the most-recently-seen timestamp, so they're kept iff that line was kept.
+///
+/// All IO/parse errors are swallowed: pruning is best-effort and must never
+/// panic or block startup.
+fn prune_logs_to_last_hour() {
+    use chrono::{NaiveDateTime, Utc};
+
+    let Ok(home) = std::env::var("HOME") else {
+        return;
+    };
+    let log_path = std::path::Path::new(&home)
+        .join("Library/Logs/dev.brijesh.stenographer/stenographer.log");
+
+    if !log_path.exists() {
+        return;
+    }
+
+    let contents = match std::fs::read_to_string(&log_path) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let cutoff = Utc::now().naive_utc() - chrono::Duration::hours(1);
+
+    // Whether the most-recently-seen timestamp is within the retention window.
+    // Lines with no parseable timestamp inherit this decision (continuations).
+    let mut keep_current = false;
+    let mut kept: Vec<&str> = Vec::new();
+
+    for line in contents.lines() {
+        if let Some(ts) = parse_log_timestamp(line) {
+            keep_current = ts >= cutoff;
+        }
+        if keep_current {
+            kept.push(line);
+        }
+    }
+
+    // Nothing to do if every line was already within the window.
+    if kept.len() == contents.lines().count() {
+        return;
+    }
+
+    let mut out = kept.join("\n");
+    if !out.is_empty() {
+        out.push('\n');
+    }
+    let _ = std::fs::write(&log_path, out);
+
+    // Helper: parse the leading `[YYYY-MM-DD][HH:MM:SS]` prefix into a
+    // `NaiveDateTime`. Returns `None` if the line doesn't start with that shape.
+    fn parse_log_timestamp(line: &str) -> Option<chrono::NaiveDateTime> {
+        // Expect: "[2026-06-20][13:45:01]...."
+        let rest = line.strip_prefix('[')?;
+        let (date, rest) = rest.split_once("][")?;
+        let (time, _) = rest.split_once(']')?;
+        NaiveDateTime::parse_from_str(
+            &format!("{date} {time}"),
+            "%Y-%m-%d %H:%M:%S",
+        )
+        .ok()
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Trim the log file to ~the last hour BEFORE the log plugin opens it, giving
+    // ~1-hour retention across restarts (the size cap bounds within-session growth).
+    prune_logs_to_last_hour();
+
     let builder = specta_builder();
 
     #[cfg(debug_assertions)]
@@ -128,6 +208,11 @@ pub fn run() {
         .plugin(
             LogBuilder::new()
                 .level(log::LevelFilter::Info)
+                // Hard storage cap within a session: rotate the log once it hits
+                // ~2 MB and keep at most one rotated file (so on-disk logs stay
+                // bounded even during a long-running session).
+                .max_file_size(2_000_000)
+                .rotation_strategy(RotationStrategy::KeepOne)
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {

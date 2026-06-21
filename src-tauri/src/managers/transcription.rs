@@ -376,11 +376,15 @@ impl TranscriptionManager {
         self.current_model_id.lock().unwrap().clone()
     }
 
-    pub fn transcribe(&self, audio: Vec<f32>) -> Result<String, String> {
-        self.transcribe_inner(audio).map_err(|e| e.to_string())
+    /// Transcribe `audio`. When `quiet` is true (the live/partial loop, which
+    /// fires every ~2.5s during recording), result/timing lines are logged at
+    /// `debug!` instead of `info!` to keep the log file from filling with
+    /// repeated partial transcripts. Error/warn logging is unaffected.
+    pub fn transcribe(&self, audio: Vec<f32>, quiet: bool) -> Result<String, String> {
+        self.transcribe_inner(audio, quiet).map_err(|e| e.to_string())
     }
 
-    fn transcribe_inner(&self, audio: Vec<f32>) -> Result<String> {
+    fn transcribe_inner(&self, audio: Vec<f32>, quiet: bool) -> Result<String> {
         self.touch_activity();
         let st = std::time::Instant::now();
 
@@ -541,16 +545,30 @@ impl TranscriptionManager {
         } else {
             ""
         };
-        info!(
-            "Transcription completed in {}ms{}",
-            st.elapsed().as_millis(),
-            translation_note
-        );
-
-        if final_result.is_empty() {
-            info!("Transcription result is empty");
+        // Partial (live-loop) transcriptions log at debug to avoid spamming the
+        // log every ~2.5s; the final transcription on stop logs at info as before.
+        if quiet {
+            debug!(
+                "Partial transcription completed in {}ms{}",
+                st.elapsed().as_millis(),
+                translation_note
+            );
+            if final_result.is_empty() {
+                debug!("Partial transcription result is empty");
+            } else {
+                debug!("Partial transcription result: {}", final_result);
+            }
         } else {
-            info!("Transcription result: {}", final_result);
+            info!(
+                "Transcription completed in {}ms{}",
+                st.elapsed().as_millis(),
+                translation_note
+            );
+            if final_result.is_empty() {
+                info!("Transcription result is empty");
+            } else {
+                info!("Transcription result: {}", final_result);
+            }
         }
 
         self.maybe_unload_immediately("transcription");

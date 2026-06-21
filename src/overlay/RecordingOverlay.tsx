@@ -2,6 +2,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { commands } from "@/bindings";
+import { AdvancedIcon } from "@/components/icons";
 
 /**
  * The recording overlay panel.
@@ -15,9 +16,10 @@ import { commands } from "@/bindings";
  *                          On a fresh "recording" we also reset the transcript
  *                          so stale text from a prior session never lingers.
  *   - `hide-overlay`       -> no-op for visibility (Rust orderOut hides panel).
- *   - `mic-level`          (payload: number[] of bar levels in 0..1) -> waveform.
- *                          A bare `number` is also accepted (single center
- *                          amplitude that ripples out) for robustness.
+ *   - `mic-level`          (payload: `f32` amplitude in 0..1) -> waveform.
+ *                          Each event pushes one sample into a fixed-length
+ *                          rolling buffer that scrolls right-to-left; a bare
+ *                          `number[]` is also tolerated (last value is used).
  *   - `partial-transcript` (payload: bare string, the transcript-so-far which
  *                          grows over time) -> live text, auto-scrolled to bottom.
  *
@@ -27,11 +29,14 @@ import { commands } from "@/bindings";
  *
  * The transcript is a real `<textarea>` the user can click into and edit (e.g.
  * to fix a misheard name). While recording, `partial-transcript` events keep
- * the text in sync — BUT once the user has focused/edited the field, incoming
- * partials STOP clobbering their edits (tracked via `userEditedRef`). A fresh
- * "recording" session resets the flag and clears the text. On edit we emit
- * `transcript-edited` (the current text) so the backend can capture corrections
- * later; no backend handler is required yet.
+ * the text in sync. Once the user has focused/edited the field we no longer
+ * clobber their edits; instead we APPEND only the newly-transcribed tail of
+ * each cumulative partial (the suffix after the longest common prefix with the
+ * previous raw partial — see `lastRawRef`). This preserves the user's edits to
+ * earlier text while still surfacing freshly-spoken words. A fresh "recording"
+ * session resets the edit flag, the raw-partial baseline, and the text. On edit
+ * we emit `transcript-edited` (the current text) so the backend can capture
+ * corrections later; no backend handler is required yet.
  *
  * The mic glyph is a static recording/transcribing indicator (not a button).
  * The cancel button emits `overlay-cancel` for the backend to handle.
@@ -40,27 +45,37 @@ import { commands } from "@/bindings";
 type OverlayState = "recording" | "transcribing";
 type MicLevelPayload = number | number[];
 
-// Number of bars shown in the compact bottom-row waveform.
-const COMPACT_BAR_COUNT = 5;
-// Smoothing factor for incoming amplitude (0..1; higher = snappier).
-const SMOOTHING = 0.35;
+// --- Waveform tuning ---------------------------------------------------------
+// Number of bars (and therefore samples) in the scrolling waveform. One bar per
+// buffered mic-level sample; the buffer scrolls left as new samples arrive.
+const WAVE_SAMPLE_COUNT = 48;
+// Bar geometry, in CSS pixels. WAVE_MAX_HEIGHT is the tallest a full-amplitude
+// (1.0) bar can reach; WAVE_MIN_HEIGHT is the thin baseline shown at silence so
+// the waveform always reads as a flat line rather than disappearing.
+const WAVE_MAX_HEIGHT = 22;
+const WAVE_MIN_HEIGHT = 2;
+// Perceptual easing applied to the raw 0..1 amplitude before mapping to height.
+// An exponent < 1 lifts quiet speech so it is visible without making loud
+// speech clip, giving a natural voice-memo response curve.
+const WAVE_EASE = 0.65;
 
 const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
 
 /**
- * Resample an arbitrary-length array of bar levels onto exactly `count` bars by
- * nearest-neighbour sampling. Keeps rendering robust regardless of how many
- * buckets the backend sends.
+ * Map a raw 0..1 amplitude to a bar height in pixels, applying perceptual
+ * easing and clamping into the [min, max] band so silence shows a thin baseline.
  */
-function fitToBars(levels: number[], count: number): number[] {
-  if (levels.length === 0) return Array(count).fill(0);
-  if (levels.length === count) return levels.map(clamp01);
-  const out: number[] = new Array(count);
-  for (let i = 0; i < count; i++) {
-    const src = Math.floor((i * levels.length) / count);
-    out[i] = clamp01(levels[src] ?? 0);
-  }
-  return out;
+function levelToHeight(level: number): number {
+  const eased = Math.pow(clamp01(level), WAVE_EASE);
+  return WAVE_MIN_HEIGHT + eased * (WAVE_MAX_HEIGHT - WAVE_MIN_HEIGHT);
+}
+
+/** Length of the longest common prefix of two strings. */
+function commonPrefixLength(a: string, b: string): number {
+  const max = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < max && a[i] === b[i]) i++;
+  return i;
 }
 
 // Centralized UI strings.
@@ -79,23 +94,33 @@ const RecordingOverlay: React.FC = () => {
   // the webview never gates its own visibility. A suspended WKWebview that
   // misses a `show-overlay` event can no longer get stuck invisible.
   const [state, setState] = useState<OverlayState>("recording");
-  // Per-bar heights for the compact waveform, animated. Newest amplitude is
-  // pushed in at the center and ripples outward for an organic waveform.
-  const [bars, setBars] = useState<number[]>(() =>
-    Array(COMPACT_BAR_COUNT).fill(0),
-  );
   // Live transcript-so-far. Empty until the first `partial-transcript` arrives,
   // OR whatever the user has typed once they take over editing.
   const [transcript, setTranscript] = useState<string>("");
-  const smoothedRef = useRef(0);
+
+  // --- Waveform state ---
+  // Fixed-length rolling buffer of recent mic levels (0..1). New samples are
+  // pushed at the end and the oldest is dropped, so index 0 is the oldest bar
+  // (left) and the last index is the newest (right). Kept in a ref and rendered
+  // by a single rAF loop so 50 events/sec never trigger 50 React re-renders.
+  const waveBufRef = useRef<number[]>(new Array(WAVE_SAMPLE_COUNT).fill(0));
+  // DOM nodes for each bar, populated on mount. The rAF loop writes heights
+  // directly to these for a smooth, cheap scroll without React in the hot path.
+  const waveBarRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const waveRafRef = useRef<number | null>(null);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // True once the user has focused/edited the field. While true, incoming
-  // `partial-transcript` events must NOT overwrite the user's edits. Reset to
-  // false on a fresh "recording" session (new dictation). A ref (not state)
+  // `partial-transcript` events APPEND the new tail instead of replacing. Reset
+  // to false on a fresh "recording" session (new dictation). A ref (not state)
   // because the `partial-transcript` listener — registered once — reads it
   // synchronously and must always see the current value.
   const userEditedRef = useRef(false);
-  // Latest transcript text, mirrored for emit-on-blur without stale closures.
+  // The last full raw `partial-transcript` string received (pre-edit model
+  // output). Used to compute the newly-spoken delta against the next partial.
+  const lastRawRef = useRef("");
+  // Latest transcript text, mirrored so listeners/handlers read it without a
+  // stale closure (the partial listener appends to the current value).
   const transcriptRef = useRef("");
   transcriptRef.current = transcript;
   // Debounce timer for emitting `transcript-edited` while the user types.
@@ -111,7 +136,10 @@ const RecordingOverlay: React.FC = () => {
       // field again (the user has not edited THIS new session yet).
       if (next === "recording") {
         userEditedRef.current = false;
+        lastRawRef.current = "";
         setTranscript("");
+        // Drop any stale bars so the prior session's waveform doesn't linger.
+        waveBufRef.current.fill(0);
       }
       setState(next);
     }).then((u) => unlisteners.push(u));
@@ -124,48 +152,67 @@ const RecordingOverlay: React.FC = () => {
       // no-op
     }).then((u) => unlisteners.push(u));
 
-    // Live transcript text (grows over time). Bare string payload. Once the
-    // user has taken over editing, do NOT clobber their text with partials.
+    // Live transcript text. Partials are CUMULATIVE (each one is the full
+    // transcript-so-far). Behaviour depends on whether the user has edited:
+    //   - Not edited: mirror the raw partial directly (and remember it).
+    //   - Edited: append only the newly-spoken delta — the suffix of the new
+    //     raw partial after its longest common prefix with the previous raw —
+    //     onto the user's CURRENT (edited) text, preserving their corrections.
     listen<string>("partial-transcript", (event) => {
-      if (userEditedRef.current) return;
-      setTranscript(event.payload ?? "");
-    }).then((u) => unlisteners.push(u));
+      const newRaw = event.payload ?? "";
 
-    listen<MicLevelPayload>("mic-level", (event) => {
-      const payload = event.payload;
-
-      if (Array.isArray(payload)) {
-        // Preferred path: backend sends one level per bar. Fit to the compact
-        // bar count and exponentially smooth each bar to reduce jitter.
-        const target = fitToBars(payload, COMPACT_BAR_COUNT);
-        setBars((prev) =>
-          target.map(
-            (t, i) => (prev[i] ?? 0) * (1 - SMOOTHING) + t * SMOOTHING,
-          ),
-        );
+      if (!userEditedRef.current) {
+        lastRawRef.current = newRaw;
+        setTranscript(newRaw);
         return;
       }
 
-      // Fallback: a single amplitude. Ripple it out from the center.
-      const raw = typeof payload === "number" ? payload : 0;
-      smoothedRef.current =
-        smoothedRef.current * (1 - SMOOTHING) + clamp01(raw) * SMOOTHING;
-      const level = smoothedRef.current;
+      const delta = newRaw.slice(commonPrefixLength(lastRawRef.current, newRaw));
+      // Always advance the baseline (even on an empty delta) so a later partial
+      // diffs against the most recent raw output rather than a stale one.
+      lastRawRef.current = newRaw;
+      if (delta.length === 0) return;
+      setTranscript(transcriptRef.current + delta);
+    }).then((u) => unlisteners.push(u));
 
-      setBars((prev) => {
-        const mid = Math.floor(COMPACT_BAR_COUNT / 2);
-        const next = [...prev];
-        for (let i = 0; i < mid; i++) {
-          next[i] = prev[i + 1];
-          next[COMPACT_BAR_COUNT - 1 - i] = prev[COMPACT_BAR_COUNT - 2 - i];
-        }
-        next[mid] = level;
-        return next;
-      });
+    // Mic amplitude: one `f32` (0..1) per event. Push into the rolling buffer
+    // and drop the oldest; the rAF loop reads the buffer and paints. A stray
+    // array payload is tolerated by taking its last value.
+    listen<MicLevelPayload>("mic-level", (event) => {
+      const payload = event.payload;
+      const raw = Array.isArray(payload)
+        ? (payload[payload.length - 1] ?? 0)
+        : typeof payload === "number"
+          ? payload
+          : 0;
+      const buf = waveBufRef.current;
+      buf.shift();
+      buf.push(clamp01(raw));
     }).then((u) => unlisteners.push(u));
 
     return () => {
       unlisteners.forEach((u) => u());
+    };
+  }, []);
+
+  // Single rAF loop that paints the waveform from the rolling buffer. Writing
+  // bar heights directly to the DOM (rather than through React state) keeps the
+  // hot path off the React reconciler even at ~50 mic-level events/sec. The CSS
+  // `height` transition on each bar smooths the per-frame step into a fluid,
+  // right-to-left scroll. Runs for the component's whole lifetime.
+  useEffect(() => {
+    const paint = (): void => {
+      const buf = waveBufRef.current;
+      const bars = waveBarRefs.current;
+      for (let i = 0; i < bars.length; i++) {
+        const el = bars[i];
+        if (el) el.style.height = `${levelToHeight(buf[i] ?? 0)}px`;
+      }
+      waveRafRef.current = requestAnimationFrame(paint);
+    };
+    waveRafRef.current = requestAnimationFrame(paint);
+    return () => {
+      if (waveRafRef.current !== null) cancelAnimationFrame(waveRafRef.current);
     };
   }, []);
 
@@ -279,14 +326,14 @@ const RecordingOverlay: React.FC = () => {
           </span>
 
           <span className="waveform" aria-hidden>
-            {bars.map((v, i) => (
+            {Array.from({ length: WAVE_SAMPLE_COUNT }, (_, i) => (
               <span
                 key={i}
-                className="wave-bar"
-                style={{
-                  height: `${4 + Math.pow(v, 0.7) * 14}px`,
-                  opacity: 0.35 + Math.min(0.65, v * 1.4),
+                ref={(el) => {
+                  waveBarRefs.current[i] = el;
                 }}
+                className="wave-bar"
+                style={{ height: `${WAVE_MIN_HEIGHT}px` }}
               />
             ))}
           </span>
@@ -300,7 +347,7 @@ const RecordingOverlay: React.FC = () => {
             title={STRINGS.settingsLabel}
             onClick={onSettings}
           >
-            <SettingsGlyph />
+            <AdvancedIcon width={14} height={14} />
           </button>
 
           <button
@@ -323,18 +370,6 @@ const MicGlyph: React.FC = () => (
     <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" />
     <path
       d="M5 11a7 7 0 0 0 14 0M12 18v3"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
-const SettingsGlyph: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-    <path
-      d="M12 2v3M12 19v3M4.2 6.6l2.1 2.1M17.7 15.3l2.1 2.1M2 12h3M19 12h3M4.2 17.4l2.1-2.1M17.7 8.7l2.1-2.1"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"

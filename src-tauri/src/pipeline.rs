@@ -119,7 +119,12 @@ fn live_transcription_loop(app: AppHandle) {
         let audio = app.state::<Arc<AudioRecordingManager>>().current_samples();
         // ~0.5s @ 16kHz — skip tiny/empty snapshots.
         if audio.len() >= 8000 {
-            if let Ok(text) = app.state::<Arc<TranscriptionManager>>().transcribe(audio) {
+            // Live/partial transcription: pass quiet=true so it logs at debug,
+            // not info, since this fires every ~2.5s while recording.
+            if let Ok(text) = app
+                .state::<Arc<TranscriptionManager>>()
+                .transcribe(audio, true)
+            {
                 if LIVE_ACTIVE.load(Ordering::Acquire) && !text.trim().is_empty() {
                     use tauri::Emitter;
                     let _ = app.emit_to("recording_overlay", "partial-transcript", text.clone());
@@ -153,7 +158,9 @@ fn record_stop(app: AppHandle) {
         } else {
             let transcription = app.state::<Arc<TranscriptionManager>>();
             let transcribe_start = std::time::Instant::now();
-            let transcribe_result = transcription.transcribe(samples);
+            // Final (authoritative) transcription: quiet=false so the result is
+            // still logged at info.
+            let transcribe_result = transcription.transcribe(samples, false);
             let transcription_ms = transcribe_start.elapsed().as_millis() as u64;
             match transcribe_result {
                 Ok(text) if !text.trim().is_empty() => {

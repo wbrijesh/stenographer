@@ -153,22 +153,30 @@ body {
   justify-content: center;
 }
 
-/* --- Waveform --- */
+/* --- Waveform ---
+   A fixed row of thin bars driven by a rolling sample buffer (see
+   RecordingOverlay.tsx). Bars are centered, so each grows symmetrically about
+   the vertical midline for a classic mirrored voice-memo look. Heights are set
+   imperatively by a rAF loop; the short `height` transition below smooths each
+   per-sample step into a fluid right-to-left scroll. */
 .waveform {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   height: 24px;
+  /* Cap the row width so 48 bars never crowd the cancel/settings controls. */
+  max-width: 160px;
+  overflow: hidden;
 }
 
 .wave-bar {
-  width: 3px;
-  min-height: 4px;
-  border-radius: 2px;
+  flex: 0 0 auto;
+  width: 2px;
+  border-radius: 1px;
   background: #ffd9e0;
-  transition:
-    height 70ms ease-out,
-    opacity 120ms ease-out;
+  /* Slightly faster than the ~50ms sample interval so motion stays smooth
+     without lagging behind the live amplitude. */
+  transition: height 80ms linear;
 }
 
 @keyframes pulse {
