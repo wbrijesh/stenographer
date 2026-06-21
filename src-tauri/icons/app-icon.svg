@@ -1,43 +1,43 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Main squircle fill: rich indigo -> violet, diagonal light -->
-    <linearGradient id="bg" x1="200" y1="150" x2="824" y2="900" gradientUnits="userSpaceOnUse">
-      <stop offset="0"   stop-color="#6D5BF5"/>
-      <stop offset="0.45" stop-color="#5B3FE0"/>
-      <stop offset="1"   stop-color="#3B1E9E"/>
+    <!-- Squircle fill: near-white with a very subtle cool light-gray/blue tint -->
+    <linearGradient id="bg" x1="512" y1="96" x2="512" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0"    stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#FBFCFE"/>
+      <stop offset="1"    stop-color="#EEF1F8"/>
     </linearGradient>
 
-    <!-- Radial top-light to give a soft directional highlight -->
-    <radialGradient id="topLight" cx="0.42" cy="0.20" r="0.9">
-      <stop offset="0"   stop-color="#FFFFFF" stop-opacity="0.28"/>
-      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.06"/>
+    <!-- Soft top highlight for premium depth -->
+    <radialGradient id="topLight" cx="0.5" cy="0.16" r="0.85">
+      <stop offset="0"   stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.25"/>
       <stop offset="1"   stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Bottom vignette to deepen the lower edge -->
-    <linearGradient id="vignette" x1="512" y1="520" x2="512" y2="928" gradientUnits="userSpaceOnUse">
-      <stop offset="0"   stop-color="#1A0E52" stop-opacity="0"/>
-      <stop offset="1"   stop-color="#1A0E52" stop-opacity="0.42"/>
+    <!-- Faint cool bottom vignette to ground the squircle -->
+    <linearGradient id="vignette" x1="512" y1="560" x2="512" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0"   stop-color="#C9D3EA" stop-opacity="0"/>
+      <stop offset="1"   stop-color="#C9D3EA" stop-opacity="0.30"/>
     </linearGradient>
 
-    <!-- White glyph fill with a faint top-to-bottom dimension -->
-    <linearGradient id="glyphFill" x1="512" y1="280" x2="512" y2="760" gradientUnits="userSpaceOnUse">
-      <stop offset="0"   stop-color="#FFFFFF"/>
-      <stop offset="1"   stop-color="#E9E6FF"/>
+    <!-- The hero S: vivid blue (top) -> deep indigo/navy (bottom) -->
+    <linearGradient id="sFill" x1="512" y1="232" x2="512" y2="612" gradientUnits="userSpaceOnUse">
+      <stop offset="0"    stop-color="#5B7CFA"/>
+      <stop offset="0.5"  stop-color="#3B49C8"/>
+      <stop offset="1"    stop-color="#1B1E6E"/>
     </linearGradient>
 
-    <!-- Soft accent glow behind the glyph -->
-    <radialGradient id="accentGlow" cx="0.5" cy="0.46" r="0.55">
-      <stop offset="0"   stop-color="#B8A8FF" stop-opacity="0.55"/>
-      <stop offset="1"   stop-color="#B8A8FF" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- Soft drop shadow under the glyph -->
-    <filter id="glyphShadow" x="-35%" y="-35%" width="170%" height="170%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#150A45" flood-opacity="0.38"/>
+    <!-- Soft drop shadow under the S and bars -->
+    <filter id="glyphShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#2A3270" flood-opacity="0.28"/>
     </filter>
 
-    <!-- Squircle silhouette: macOS Big Sur superellipse, ~96px margin -->
+    <!-- Soft blur for the outer squircle shadow -->
+    <filter id="outerShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+
+    <!-- Squircle silhouette: macOS Big Sur superellipse, ~96px margin, r~228 -->
     <path id="squircle" d="M512 96
       C 736 96 818 96 866 121
       C 906 142 915 156 925 213
@@ -54,65 +54,50 @@
     <clipPath id="squircleClip"><use href="#squircle"/></clipPath>
   </defs>
 
+  <!-- Soft outer drop shadow for the whole squircle -->
+  <use href="#squircle" fill="#2A3270" opacity="0.16" transform="translate(0,12)" filter="url(#outerShadow)"/>
+
   <!-- Squircle body -->
   <g clip-path="url(#squircleClip)">
     <use href="#squircle" fill="url(#bg)"/>
     <use href="#squircle" fill="url(#topLight)"/>
     <use href="#squircle" fill="url(#vignette)"/>
-
-    <!-- accent glow behind glyph -->
-    <rect x="200" y="220" width="624" height="600" fill="url(#accentGlow)"/>
-
-    <!-- inner rim shadow: dark stroke along the inner edge, blurred -->
-    <use href="#squircle" fill="none" stroke="#160A47" stroke-opacity="0.45"
-         stroke-width="26" style="filter:blur(10px)"/>
-    <!-- soft top inner highlight along the rim -->
-    <use href="#squircle" fill="none" stroke="#FFFFFF" stroke-opacity="0.22"
-         stroke-width="3"/>
+    <!-- subtle inner top highlight along the rim -->
+    <use href="#squircle" fill="none" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="3"/>
+    <!-- faint cool inner edge for definition -->
+    <use href="#squircle" fill="none" stroke="#AEB9D6" stroke-opacity="0.35" stroke-width="2"/>
   </g>
 
-  <!-- Glyph: microphone + soundwave, centered with shadow -->
   <g filter="url(#glyphShadow)">
+    <!-- The hero S: bold stylized capital S, upper ~60%, slightly left of center.
+         Drawn as a thick stroked flowing path with rounded terminals. -->
+    <path d="M628 286
+             C 588 246 528 230 464 242
+             C 392 256 348 306 352 366
+             C 356 428 410 458 482 476
+             C 548 492 580 506 582 540
+             C 584 578 540 602 484 602
+             C 428 602 388 586 358 552"
+          fill="none"
+          stroke="url(#sFill)"
+          stroke-width="92"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>
 
-    <!-- Soundwave bars to the right of the mic: smooth rounded, varying heights -->
-    <g fill="url(#glyphFill)">
-      <rect x="606" y="476" width="30" height="72"  rx="15"/>
-      <rect x="656" y="436" width="30" height="152" rx="15"/>
-      <rect x="706" y="392" width="30" height="240" rx="15"/>
-      <rect x="756" y="456" width="30" height="112" rx="15"/>
+    <!-- Soundwave: 11 rounded bars beneath the S, common baseline (y=830),
+         symmetric organic wave, tallest near the middle -->
+    <g transform="translate(-10,0)">
+      <rect x="262" y="794" width="32" height="36"  rx="16" fill="#5B7CFA"/>
+      <rect x="308" y="758" width="32" height="72"  rx="16" fill="#4F6CF5"/>
+      <rect x="354" y="714" width="32" height="116" rx="16" fill="#4263EB"/>
+      <rect x="400" y="746" width="32" height="84"  rx="16" fill="#3B49C8"/>
+      <rect x="446" y="690" width="32" height="140" rx="16" fill="#3340BE"/>
+      <rect x="492" y="662" width="32" height="168" rx="16" fill="#2D2F8F"/>
+      <rect x="538" y="690" width="32" height="140" rx="16" fill="#2A2C84"/>
+      <rect x="584" y="746" width="32" height="84"  rx="16" fill="#24276F"/>
+      <rect x="630" y="714" width="32" height="116" rx="16" fill="#1F2270"/>
+      <rect x="676" y="758" width="32" height="72"  rx="16" fill="#1B1E6E"/>
+      <rect x="722" y="794" width="32" height="36"  rx="16" fill="#1B1E6E"/>
     </g>
-    <!-- mirrored soundwave bars to the left -->
-    <g fill="url(#glyphFill)" opacity="0.95">
-      <rect x="388" y="476" width="30" height="72"  rx="15"/>
-      <rect x="338" y="436" width="30" height="152" rx="15"/>
-      <rect x="288" y="392" width="30" height="240" rx="15"/>
-      <rect x="238" y="456" width="30" height="112" rx="15"/>
-    </g>
-
-    <!-- Mic capsule head -->
-    <rect x="454" y="284" width="116" height="252" rx="58" fill="url(#glyphFill)"/>
-
-    <!-- Grille dots on capsule for tasteful detail -->
-    <g fill="#5B3FE0" opacity="0.20">
-      <circle cx="488" cy="350" r="7"/>
-      <circle cx="512" cy="350" r="7"/>
-      <circle cx="536" cy="350" r="7"/>
-      <circle cx="488" cy="392" r="7"/>
-      <circle cx="512" cy="392" r="7"/>
-      <circle cx="536" cy="392" r="7"/>
-      <circle cx="488" cy="434" r="7"/>
-      <circle cx="512" cy="434" r="7"/>
-      <circle cx="536" cy="434" r="7"/>
-    </g>
-
-    <!-- U-shaped cradle -->
-    <path d="M410 494 a102 102 0 0 0 204 0"
-          fill="none" stroke="url(#glyphFill)" stroke-width="34" stroke-linecap="round"/>
-
-    <!-- Stem -->
-    <rect x="495" y="588" width="34" height="86" rx="17" fill="url(#glyphFill)"/>
-
-    <!-- Base -->
-    <rect x="430" y="690" width="164" height="34" rx="17" fill="url(#glyphFill)"/>
   </g>
 </svg>
