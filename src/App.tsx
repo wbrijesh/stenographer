@@ -90,14 +90,8 @@ function SettingsApp() {
         className="flex w-[215px] shrink-0 flex-col px-2.5"
         style={{ borderRight: "0.5px solid var(--separator)" }}
       >
-        {/* Top padding clears the traffic-light / titlebar region. */}
-        <div className="px-2 pb-3 pt-9">
-          <h1 className="text-label text-[15px] font-semibold tracking-tight">
-            Stenographer
-          </h1>
-          <p className="text-tertiary text-[11px]">Settings</p>
-        </div>
-        <nav className="flex flex-col gap-0.5">
+        {/* Top inset clears the traffic-light / titlebar region. */}
+        <nav className="flex flex-col gap-0.5 pt-9">
           {SECTIONS.map((section) => (
             <SidebarItem
               key={section.id}
@@ -112,7 +106,7 @@ function SettingsApp() {
 
       {/* Content */}
       <main className="mac-scroll flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-5 pb-8 pt-8">
+        <div className="mx-auto max-w-2xl px-5 pb-8 pt-9">
           {loading && !settings && (
             <p className="text-secondary text-[13px]">Loading settings…</p>
           )}
