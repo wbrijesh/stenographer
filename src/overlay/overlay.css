@@ -55,19 +55,28 @@ body {
   flex: 1 1 auto;
   /* ~84px tall content area within the rectangle. */
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* Let the user read / select the transcript even though the chrome doesn't. */
+  /* Layout container only — the inner <textarea> owns scrolling so the caret
+     stays visible while editing. */
+  display: flex;
+  /* Let the user read / select / EDIT the transcript even though the chrome
+     doesn't. */
   user-select: text;
   -webkit-user-select: text;
-  padding-right: 4px;
-  /* Subtle fade so text meets the top edge gracefully. */
-  mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
 }
 
-.overlay-transcript {
+/* The editable transcript field. Styled to look identical to the old read-only
+   transcript: same font/colour/spacing on the dark pill, its own scroll area. */
+.overlay-transcript-input {
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
   margin: 0;
+  padding: 0 4px 0 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: inherit;
   font-size: 13.5px;
   font-weight: 450;
   line-height: 1.45;
@@ -76,33 +85,42 @@ body {
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Editable and selectable, unlike the surrounding chrome. */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  /* Subtle fade so text meets the top edge gracefully (was on the scroll box). */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
 }
 
-.overlay-placeholder {
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 450;
-  line-height: 1.45;
+/* Placeholder matches the old pulsing placeholder paragraph. */
+.overlay-transcript-input::placeholder {
   color: rgba(235, 235, 240, 0.4);
   letter-spacing: 0.2px;
+}
+
+.overlay-transcript-input.is-empty::placeholder {
   animation: pulse 1.8s ease-in-out infinite;
 }
 
-/* Subtle, macOS-like scrollbar. */
-.overlay-scroll::-webkit-scrollbar {
+/* Subtle, macOS-like scrollbar on the editable transcript field. */
+.overlay-transcript-input::-webkit-scrollbar {
   width: 6px;
 }
 
-.overlay-scroll::-webkit-scrollbar-track {
+.overlay-transcript-input::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.overlay-scroll::-webkit-scrollbar-thumb {
+.overlay-transcript-input::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
   border-radius: 3px;
 }
 
-.overlay-scroll::-webkit-scrollbar-thumb:hover {
+.overlay-transcript-input::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.28);
 }
 

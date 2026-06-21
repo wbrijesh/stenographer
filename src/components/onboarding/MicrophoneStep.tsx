@@ -69,9 +69,9 @@ export function MicrophoneStep({ granted, onGranted }: MicrophoneStepProps) {
             {requesting ? "Waiting for permission…" : "Grant microphone access"}
           </Button>
           {stuck && (
-            <p className="text-xs leading-relaxed text-black/50">
+            <p className="text-secondary text-[12px] leading-relaxed">
               Still waiting. Open{" "}
-              <span className="font-medium text-black/70">
+              <span className="text-label font-medium">
                 System Settings → Privacy &amp; Security → Microphone
               </span>{" "}
               and enable Stenographer, then try again.
@@ -79,7 +79,7 @@ export function MicrophoneStep({ granted, onGranted }: MicrophoneStepProps) {
           )}
           <button
             type="button"
-            className="mx-auto flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            className="text-accent mx-auto flex items-center gap-1 text-[12px] hover:underline"
             onClick={() => void request()}
           >
             <span className="h-3.5 w-3.5">

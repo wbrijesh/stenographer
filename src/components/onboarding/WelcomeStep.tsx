@@ -9,28 +9,22 @@ export function WelcomeStep() {
       title="Welcome to Stenographer"
       description="Offline push-to-talk dictation that types wherever you are — nothing leaves your Mac."
     >
-      <div className="space-y-2 rounded-xl border border-black/10 bg-black/[0.02] p-4 text-left">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-black/60">Hold</span>
-          <kbd className="rounded-md border border-black/15 bg-white px-2 py-0.5 font-mono text-xs shadow-sm">
-            Fn
-          </kbd>
+      <div className="mac-card space-y-2 p-4 text-left">
+        <div className="flex items-center justify-between gap-3 text-[13px]">
+          <span className="text-secondary">Hold</span>
+          <kbd className="mac-kbd px-2 py-0.5 text-[12px]">Fn</kbd>
         </div>
-        <div className="h-px bg-black/[0.06]" />
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-black/60">Toggle hands-free</span>
+        <div className="mac-divider !ml-0" />
+        <div className="flex items-center justify-between gap-3 text-[13px]">
+          <span className="text-secondary">Toggle hands-free</span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded-md border border-black/15 bg-white px-2 py-0.5 font-mono text-xs shadow-sm">
-              Fn
-            </kbd>
-            <span className="text-black/30">+</span>
-            <kbd className="rounded-md border border-black/15 bg-white px-2 py-0.5 font-mono text-xs shadow-sm">
-              Space
-            </kbd>
+            <kbd className="mac-kbd px-2 py-0.5 text-[12px]">Fn</kbd>
+            <span className="text-tertiary">+</span>
+            <kbd className="mac-kbd px-2 py-0.5 text-[12px]">Space</kbd>
           </span>
         </div>
       </div>
-      <p className="mt-4 text-xs text-black/40">
+      <p className="text-tertiary mt-4 text-[11px]">
         A quick setup grants the permissions it needs and downloads a speech
         model.
       </p>

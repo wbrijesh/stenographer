@@ -20,8 +20,16 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
  *                          grows over time) -> live text, auto-scrolled to bottom.
  *
  * Layout (top -> bottom) at 440x132:
- *   [  scrollable live transcript (auto-scrolled to newest)  ]
+ *   [  scrollable EDITABLE live transcript (auto-scrolled to newest)  ]
  *   [ mic(indicator)  compact waveform           cancel ✕    ]
+ *
+ * The transcript is a real `<textarea>` the user can click into and edit (e.g.
+ * to fix a misheard name). While recording, `partial-transcript` events keep
+ * the text in sync — BUT once the user has focused/edited the field, incoming
+ * partials STOP clobbering their edits (tracked via `userEditedRef`). A fresh
+ * "recording" session resets the flag and clears the text. On edit we emit
+ * `transcript-edited` (the current text) so the backend can capture corrections
+ * later; no backend handler is required yet.
  *
  * The mic glyph is a static recording/transcribing indicator (not a button).
  * The cancel button emits `overlay-cancel` for the backend to handle.
@@ -73,10 +81,22 @@ const RecordingOverlay: React.FC = () => {
   const [bars, setBars] = useState<number[]>(() =>
     Array(COMPACT_BAR_COUNT).fill(0),
   );
-  // Live transcript-so-far. Empty until the first `partial-transcript` arrives.
+  // Live transcript-so-far. Empty until the first `partial-transcript` arrives,
+  // OR whatever the user has typed once they take over editing.
   const [transcript, setTranscript] = useState<string>("");
   const smoothedRef = useRef(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // True once the user has focused/edited the field. While true, incoming
+  // `partial-transcript` events must NOT overwrite the user's edits. Reset to
+  // false on a fresh "recording" session (new dictation). A ref (not state)
+  // because the `partial-transcript` listener — registered once — reads it
+  // synchronously and must always see the current value.
+  const userEditedRef = useRef(false);
+  // Latest transcript text, mirrored for emit-on-blur without stale closures.
+  const transcriptRef = useRef("");
+  transcriptRef.current = transcript;
+  // Debounce timer for emitting `transcript-edited` while the user types.
+  const emitDebounceRef = useRef<number | null>(null);
 
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
@@ -84,8 +104,10 @@ const RecordingOverlay: React.FC = () => {
     listen<OverlayState>("show-overlay", (event) => {
       const next = event.payload ?? "recording";
       // A fresh recording session: clear any stale transcript so old text from
-      // the previous dictation does not linger.
+      // the previous dictation does not linger, and let live partials drive the
+      // field again (the user has not edited THIS new session yet).
       if (next === "recording") {
+        userEditedRef.current = false;
         setTranscript("");
       }
       setState(next);
@@ -99,8 +121,10 @@ const RecordingOverlay: React.FC = () => {
       // no-op
     }).then((u) => unlisteners.push(u));
 
-    // Live transcript text (grows over time). Bare string payload.
+    // Live transcript text (grows over time). Bare string payload. Once the
+    // user has taken over editing, do NOT clobber their text with partials.
     listen<string>("partial-transcript", (event) => {
+      if (userEditedRef.current) return;
       setTranscript(event.payload ?? "");
     }).then((u) => unlisteners.push(u));
 
@@ -143,18 +167,71 @@ const RecordingOverlay: React.FC = () => {
   }, []);
 
   // Auto-scroll the transcript area to the bottom whenever new text arrives so
-  // the latest words are always visible. useLayoutEffect runs before paint to
-  // avoid a visible jump.
+  // the latest words are always visible — but ONLY while live partials drive
+  // the field. Once the user is editing we must not yank their caret/scroll
+  // around. useLayoutEffect runs before paint to avoid a visible jump.
   useLayoutEffect(() => {
-    const el = scrollRef.current;
+    if (userEditedRef.current) return;
+    const el = textareaRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [transcript]);
+
+  // Flush any pending debounced emit on unmount.
+  useEffect(() => {
+    return () => {
+      if (emitDebounceRef.current !== null) {
+        window.clearTimeout(emitDebounceRef.current);
+      }
+    };
+  }, []);
 
   const onCancel = (): void => {
     void emit("overlay-cancel");
   };
 
-  const hasText = transcript.trim().length > 0;
+  // The user has taken over the field: from now on, partials must not clobber
+  // their text. Set on focus so even a click-with-no-typing locks the field.
+  const markUserEdited = (): void => {
+    userEditedRef.current = true;
+  };
+
+  const onTranscriptChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>,
+  ): void => {
+    userEditedRef.current = true;
+    const value = e.target.value;
+    setTranscript(value);
+    // Debounced emit so the backend can capture corrections as they happen.
+    if (emitDebounceRef.current !== null) {
+      window.clearTimeout(emitDebounceRef.current);
+    }
+    emitDebounceRef.current = window.setTimeout(() => {
+      void emit("transcript-edited", value);
+    }, 400);
+  };
+
+  const onTranscriptBlur = (): void => {
+    // Emit the final text on blur (cancel any pending debounce first).
+    if (emitDebounceRef.current !== null) {
+      window.clearTimeout(emitDebounceRef.current);
+      emitDebounceRef.current = null;
+    }
+    if (userEditedRef.current) {
+      void emit("transcript-edited", transcriptRef.current);
+    }
+  };
+
+  // Keep Escape working as cancel even when the textarea has focus: don't let
+  // the field swallow it. Emit cancel and let it bubble.
+  const onTranscriptKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ): void => {
+    if (e.key === "Escape") {
+      void emit("overlay-cancel");
+    }
+  };
+
+  const hasText = transcript.length > 0;
 
   // Empty-state placeholder depends on phase: while recording we are listening,
   // while transcribing we are finishing up.
@@ -163,12 +240,21 @@ const RecordingOverlay: React.FC = () => {
 
   return (
     <div className="overlay-panel">
-      <div className="overlay-scroll" ref={scrollRef}>
-        {hasText ? (
-          <p className="overlay-transcript">{transcript}</p>
-        ) : (
-          <p className="overlay-placeholder">{placeholder}</p>
-        )}
+      <div className="overlay-scroll">
+        <textarea
+          ref={textareaRef}
+          className={`overlay-transcript-input${
+            hasText ? "" : " is-empty"
+          }`}
+          value={transcript}
+          placeholder={placeholder}
+          spellCheck={false}
+          aria-label="Transcript (editable)"
+          onChange={onTranscriptChange}
+          onFocus={markUserEdited}
+          onBlur={onTranscriptBlur}
+          onKeyDown={onTranscriptKeyDown}
+        />
       </div>
 
       <div className="overlay-controls">

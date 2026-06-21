@@ -87,25 +87,24 @@ export function ModelStep({ onReady }: ModelStepProps) {
     const isInstalling = installingId === model.id;
 
     return (
-      <div
-        key={model.id}
-        className="rounded-xl border border-black/10 bg-white/70 p-3 text-left shadow-sm"
-      >
+      <div key={model.id} className="mac-card p-3 text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold">{model.name}</span>
+              <span className="text-label text-[13px] font-semibold">
+                {model.name}
+              </span>
               {model.is_recommended && (
-                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+                <span className="text-accent rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                   Recommended
                 </span>
               )}
             </div>
-            <p className="mt-1 text-xs leading-snug text-black/55">
+            <p className="text-secondary mt-1 text-[12px] leading-snug">
               {model.description}
             </p>
           </div>
-          <span className="shrink-0 rounded-md bg-black/[0.05] px-2 py-1 text-xs font-medium tabular-nums text-black/60">
+          <span className="text-secondary shrink-0 rounded-md bg-[var(--fill)] px-2 py-1 text-[12px] font-medium tabular-nums">
             {formatSize(model.size_mb)}
           </span>
         </div>
@@ -113,7 +112,7 @@ export function ModelStep({ onReady }: ModelStepProps) {
         {downloading && (
           <div className="mt-3 space-y-1.5">
             <ProgressBar percentage={Math.round(progress?.percentage ?? 0)} />
-            <div className="flex items-center justify-between text-[11px] tabular-nums text-black/50">
+            <div className="text-secondary flex items-center justify-between text-[11px] tabular-nums">
               <span>{Math.round(progress?.percentage ?? 0)}%</span>
               <span>
                 {speed && speed > 0
@@ -166,13 +165,13 @@ export function ModelStep({ onReady }: ModelStepProps) {
     >
       <div className="space-y-3">
         {error && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/[0.06] px-3 py-2 text-left text-xs text-red-700">
+          <div className="text-red rounded-lg border border-[color-mix(in_srgb,var(--red)_30%,transparent)] bg-[color-mix(in_srgb,var(--red)_8%,transparent)] px-3 py-2 text-left text-[12px]">
             {error}
           </div>
         )}
 
         {loading && models.length === 0 ? (
-          <p className="text-sm text-black/50">Loading models…</p>
+          <p className="text-secondary text-[13px]">Loading models…</p>
         ) : (
           <>
             {recommended && renderInstallRow(recommended)}
@@ -180,7 +179,7 @@ export function ModelStep({ onReady }: ModelStepProps) {
             {sortedCatalog.length > (recommended ? 1 : 0) && (
               <button
                 type="button"
-                className="text-xs text-blue-600 hover:underline"
+                className="text-accent text-[12px] hover:underline"
                 onClick={() => setShowCatalog((v) => !v)}
               >
                 {showCatalog
@@ -198,12 +197,12 @@ export function ModelStep({ onReady }: ModelStepProps) {
             )}
 
             {!recommended && sortedCatalog.length === 0 && (
-              <p className="text-sm text-black/50">No models available.</p>
+              <p className="text-secondary text-[13px]">No models available.</p>
             )}
           </>
         )}
 
-        <p className="text-xs text-black/40">
+        <p className="text-tertiary text-[11px]">
           You can add or switch models any time from Settings → Models.
         </p>
       </div>

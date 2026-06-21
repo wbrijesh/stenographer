@@ -42,11 +42,11 @@ interface StatCardProps {
 
 function StatCard({ label, value }: StatCardProps) {
   return (
-    <div className="rounded-xl border border-black/10 bg-white/70 px-3.5 py-3 shadow-sm">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-black/45">
+    <div className="mac-card px-3.5 py-3">
+      <div className="text-tertiary text-[11px] font-medium uppercase tracking-wide">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold tabular-nums tracking-tight">
+      <div className="text-label mt-1 text-[17px] font-semibold tabular-nums tracking-tight">
         {value}
       </div>
     </div>
@@ -124,7 +124,8 @@ function LogViewer({ logs }: LogViewerProps) {
   return (
     <div
       ref={scrollRef}
-      className="h-64 select-text overflow-auto rounded-xl border border-black/10 bg-neutral-900 p-3 font-mono text-[11px] leading-relaxed text-neutral-200 shadow-inner"
+      data-selectable
+      className="mac-scroll h-64 overflow-auto rounded-[10px] border border-black/30 bg-[#1c1c1e] p-3 font-mono text-[11px] leading-relaxed text-neutral-200"
     >
       {logs.length === 0 ? (
         <div className="text-neutral-500">No log lines available.</div>
@@ -196,7 +197,7 @@ export function DiagnosticsSettings({ active }: Props) {
       >
         <div className="space-y-3 px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-black/45">
+            <span className="text-secondary text-[12px]">
               {logs.length} {logs.length === 1 ? "line" : "lines"}
             </span>
             <Button

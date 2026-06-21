@@ -60,8 +60,8 @@ function App() {
   // Avoid a flash of either UI until prerequisites resolve.
   if (!ready) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background text-text">
-        <p className="text-sm text-black/50">Loading…</p>
+      <div className="flex h-screen w-screen items-center justify-center">
+        <p className="text-secondary text-[13px]">Loading…</p>
       </div>
     );
   }
@@ -84,16 +84,20 @@ function SettingsApp() {
   const current = SECTIONS.find((s) => s.id === active) ?? SECTIONS[0];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-text">
-      {/* Sidebar */}
-      <aside className="flex w-48 shrink-0 flex-col border-r border-black/10 bg-black/[0.02] px-2.5 pt-4">
-        <div className="px-2 pb-4">
-          <h1 className="text-base font-semibold tracking-tight">
+    <div className="flex h-screen w-screen overflow-hidden text-label">
+      {/* Sidebar (transparent — lets window vibrancy show through) */}
+      <aside
+        className="flex w-[215px] shrink-0 flex-col px-2.5"
+        style={{ borderRight: "0.5px solid var(--separator)" }}
+      >
+        {/* Top padding clears the traffic-light / titlebar region. */}
+        <div className="px-2 pb-3 pt-9">
+          <h1 className="text-label text-[15px] font-semibold tracking-tight">
             Stenographer
           </h1>
-          <p className="text-[11px] text-black/40">Settings</p>
+          <p className="text-tertiary text-[11px]">Settings</p>
         </div>
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-0.5">
           {SECTIONS.map((section) => (
             <SidebarItem
               key={section.id}
@@ -107,10 +111,10 @@ function SettingsApp() {
       </aside>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-6 py-7">
+      <main className="mac-scroll flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-5 pb-8 pt-8">
           {loading && !settings && (
-            <p className="text-sm text-black/50">Loading settings…</p>
+            <p className="text-secondary text-[13px]">Loading settings…</p>
           )}
           {settings && current.render(settings, active === current.id)}
         </div>

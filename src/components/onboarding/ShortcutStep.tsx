@@ -21,8 +21,8 @@ export function ShortcutStep({ onContinue }: ShortcutStepProps) {
       description="Stenographer is triggered by Right ⌘ by default — press it once to start dictating, again to stop. You can change it here."
     >
       <div className="space-y-4">
-        <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-left">
-          <span className="text-sm font-medium text-black/75">
+        <div className="mac-card flex items-center justify-between px-4 py-3 text-left">
+          <span className="text-label text-[13px] font-medium">
             Trigger shortcut
           </span>
           <ShortcutRecorder />

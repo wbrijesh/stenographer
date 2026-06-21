@@ -84,12 +84,21 @@ export function ShortcutRecorder() {
     <div className="flex flex-col items-end gap-1.5">
       <div className="flex items-center gap-2">
         {listening ? (
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-sm font-medium text-blue-700">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+          <span
+            className="text-accent inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-[12px] font-medium"
+            style={{
+              borderColor: "color-mix(in srgb, var(--accent) 40%, transparent)",
+              background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+            }}
+          >
+            <span
+              className="h-2 w-2 animate-pulse rounded-full"
+              style={{ background: "var(--accent)" }}
+            />
             Listening… press your shortcut (Esc to cancel)
           </span>
         ) : (
-          <kbd className="inline-flex min-w-[3rem] items-center justify-center rounded-lg border border-black/15 bg-black/[0.04] px-2.5 py-1 font-mono text-sm font-semibold text-black/75 shadow-sm">
+          <kbd className="mac-kbd text-label inline-flex min-w-[3rem] items-center justify-center px-2.5 py-1 text-[13px] font-semibold">
             {formatBinding(current)}
           </kbd>
         )}
@@ -106,7 +115,7 @@ export function ShortcutRecorder() {
       {!isDefault && !listening && (
         <button
           type="button"
-          className="text-xs text-black/45 underline-offset-2 transition-colors hover:text-black/70 hover:underline"
+          className="text-tertiary text-[11px] underline-offset-2 transition-colors hover:text-[var(--label)] hover:underline"
           onClick={resetToDefault}
         >
           Reset to default (Right ⌘)
@@ -114,7 +123,7 @@ export function ShortcutRecorder() {
       )}
 
       {hint && (
-        <p className="text-xs text-black/45" role="status">
+        <p className="text-tertiary text-[11px]" role="status">
           {hint}
         </p>
       )}

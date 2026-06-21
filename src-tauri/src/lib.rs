@@ -205,7 +205,29 @@ pub fn run() {
             .resizable(true)
             .maximizable(false)
             .visible(false)
+            // Transparent background is required for the native macOS vibrancy
+            // (NSVisualEffectView) applied below to show through.
+            .transparent(true)
             .build()?;
+
+            // macOS: apply a native translucent vibrancy background to the main
+            // settings window so it looks like a System-Settings-style native app.
+            #[cfg(target_os = "macos")]
+            {
+                use window_vibrancy::{
+                    apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState,
+                };
+                if let Some(win) = app_handle.get_webview_window("main") {
+                    if let Err(e) = apply_vibrancy(
+                        &win,
+                        NSVisualEffectMaterial::Sidebar,
+                        Some(NSVisualEffectState::Active),
+                        None,
+                    ) {
+                        log::error!("Failed to apply window vibrancy: {e}");
+                    }
+                }
+            }
 
             main_window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {

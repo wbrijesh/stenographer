@@ -60,9 +60,9 @@ export function NumberInput({
             e.currentTarget.blur();
           }
         }}
-        className="w-24 rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm tabular-nums shadow-sm transition-colors hover:border-black/30 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mac-input w-20 text-right tabular-nums"
       />
-      {suffix && <span className="text-xs text-black/50">{suffix}</span>}
+      {suffix && <span className="text-secondary text-[12px]">{suffix}</span>}
     </div>
   );
 }

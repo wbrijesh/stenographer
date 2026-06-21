@@ -50,7 +50,7 @@ function SettingsTextInput({
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur();
       }}
-      className="w-full rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm shadow-sm transition-colors hover:border-black/30 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+      className="mac-input"
     />
   );
 }
@@ -162,7 +162,7 @@ export function GeneralSettings({ settings }: Props) {
                 disabled={!cleanupEnabled}
                 onCommit={(v) => void setLlmBaseUrl(v)}
               />
-              <p className="mt-1.5 text-xs text-black/50">
+              <p className="text-secondary mt-1.5 text-[11px]">
                 Any OpenAI-compatible endpoint (OpenAI, Gemini, DeepSeek, etc.).
               </p>
             </Row>
@@ -176,7 +176,7 @@ export function GeneralSettings({ settings }: Props) {
                 disabled={!cleanupEnabled}
                 onCommit={(v) => void setLlmApiKey(v)}
               />
-              <p className="mt-1.5 text-xs text-black/50">
+              <p className="text-secondary mt-1.5 text-[11px]">
                 Stored locally on this Mac.
               </p>
             </Row>
@@ -201,7 +201,7 @@ export function GeneralSettings({ settings }: Props) {
                   {test.status === "pending" && (
                     <span
                       aria-hidden
-                      className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/20 border-t-black/60"
+                      className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--label-quaternary)] border-t-[var(--label-secondary)]"
                     />
                   )}
                   {test.status === "pending"
@@ -210,22 +210,24 @@ export function GeneralSettings({ settings }: Props) {
                 </Button>
 
                 {test.status === "ok" && (
-                  <p className="flex items-start gap-1.5 text-xs text-green-600">
+                  <p className="text-green flex items-start gap-1.5 text-[12px]">
                     <span aria-hidden>✓</span>
-                    <span className="min-w-0 break-words">
+                    <span className="min-w-0 break-words" data-selectable>
                       Connected. Sample: “{test.output}”
                     </span>
                   </p>
                 )}
                 {test.status === "error" && (
-                  <p className="flex items-start gap-1.5 text-xs text-red-600">
+                  <p className="text-red flex items-start gap-1.5 text-[12px]">
                     <span aria-hidden>✕</span>
-                    <span className="min-w-0 break-words">{test.message}</span>
+                    <span className="min-w-0 break-words" data-selectable>
+                      {test.message}
+                    </span>
                   </p>
                 )}
 
                 {configured === false && (
-                  <p className="text-xs text-black/45">
+                  <p className="text-tertiary text-[12px]">
                     Not configured — transcripts will paste without cleanup.
                   </p>
                 )}

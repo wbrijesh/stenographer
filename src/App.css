@@ -1,29 +1,474 @@
 @import "tailwindcss";
 
-@theme {
-  /* Design tokens */
-  --color-text: #0f0f0f;
-  --color-background: #fbfbfb;
+/*
+ * Native macOS (System Settings) design system.
+ *
+ * The main window is rendered vibrant/translucent by the native layer, so the
+ * web layer must stay transparent and let the NSVisualEffectView show through.
+ * All chrome is built from semantic tokens that respond to prefers-color-scheme.
+ */
+
+:root {
+  /* Typography */
+  --font-system:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* System accent (macOS default blue). */
+  --accent: #0a7aff;
+  --accent-hover: #0a6fe6;
+  --accent-active: #0860c9;
+  --accent-fg: #ffffff;
+
+  /* Semantic label colors (macOS-style label hierarchy). */
+  --label: rgba(0, 0, 0, 0.85);
+  --label-secondary: rgba(0, 0, 0, 0.5);
+  --label-tertiary: rgba(0, 0, 0, 0.26);
+  --label-quaternary: rgba(0, 0, 0, 0.14);
+
+  /* Separators / hairlines. */
+  --separator: rgba(0, 0, 0, 0.1);
+  --separator-strong: rgba(0, 0, 0, 0.16);
+
+  /* Materials / control backgrounds (kept translucent for vibrancy). */
+  --card-bg: rgba(255, 255, 255, 0.62);
+  --card-border: rgba(0, 0, 0, 0.08);
+  --control-bg: rgba(255, 255, 255, 0.9);
+  --control-border: rgba(0, 0, 0, 0.14);
+  --control-border-strong: rgba(0, 0, 0, 0.28);
+  --fill: rgba(0, 0, 0, 0.05);
+  --fill-hover: rgba(0, 0, 0, 0.08);
+  --fill-strong: rgba(0, 0, 0, 0.12);
+
+  /* Switch off-state track. */
+  --switch-off: rgba(0, 0, 0, 0.16);
+  --switch-on: #34c759;
+
+  /* Sidebar selection hover (vibrant gray). */
+  --sidebar-hover: rgba(0, 0, 0, 0.06);
+
+  /* Semantic status colors. */
+  --green: #2fa84a;
+  --red: #e0392f;
+  --amber: #c77700;
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.26);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #0a84ff;
+    --accent-hover: #2b95ff;
+    --accent-active: #0a78e6;
+    --accent-fg: #ffffff;
+
+    --label: rgba(255, 255, 255, 0.92);
+    --label-secondary: rgba(255, 255, 255, 0.55);
+    --label-tertiary: rgba(255, 255, 255, 0.3);
+    --label-quaternary: rgba(255, 255, 255, 0.16);
+
+    --separator: rgba(255, 255, 255, 0.12);
+    --separator-strong: rgba(255, 255, 255, 0.18);
+
+    --card-bg: rgba(255, 255, 255, 0.06);
+    --card-border: rgba(255, 255, 255, 0.09);
+    --control-bg: rgba(255, 255, 255, 0.09);
+    --control-border: rgba(255, 255, 255, 0.16);
+    --control-border-strong: rgba(255, 255, 255, 0.3);
+    --fill: rgba(255, 255, 255, 0.08);
+    --fill-hover: rgba(255, 255, 255, 0.12);
+    --fill-strong: rgba(255, 255, 255, 0.16);
+
+    --switch-off: rgba(255, 255, 255, 0.18);
+    --switch-on: #32d74b;
+
+    --sidebar-hover: rgba(255, 255, 255, 0.08);
+
+    --green: #41c463;
+    --red: #ff6961;
+    --amber: #ffb340;
+
+    --scrollbar-thumb: rgba(255, 255, 255, 0.28);
+
+    color-scheme: dark;
+  }
+}
+
+/* ---- Base ---- */
+
+html,
+body,
+#root {
+  /* Transparent so the native window vibrancy shows through. */
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 :root {
-  font-size: 15px;
-  line-height: 24px;
+  font-family: var(--font-system);
+  font-size: 13px;
+  line-height: 1.4;
   font-weight: 400;
+  color: var(--label);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-
-  color: var(--color-text);
-  background-color: var(--color-background);
-
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+* {
+  /* Remove the chunky default web focus outline; controls supply their own. */
+  outline: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Don't let the window be text-selectable like a document. */
 body {
-  margin: 0;
-  min-height: 100vh;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[data-selectable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ---- Thin macOS-style overlay scrollbars ---- */
+
+.mac-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.mac-scroll::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.mac-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mac-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.mac-scroll:hover::-webkit-scrollbar-thumb,
+.mac-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+}
+
+.mac-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--scrollbar-thumb) 160%, black);
+}
+
+/* ---- Semantic text utilities ---- */
+
+.text-label {
+  color: var(--label);
+}
+.text-secondary {
+  color: var(--label-secondary);
+}
+.text-tertiary {
+  color: var(--label-tertiary);
+}
+.text-accent {
+  color: var(--accent);
+}
+.text-green {
+  color: var(--green);
+}
+.text-red {
+  color: var(--red);
+}
+.text-amber {
+  color: var(--amber);
+}
+
+/* ---- Grouped settings card ---- */
+
+.mac-card {
+  background: var(--card-bg);
+  border: 0.5px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.mac-group-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--label-secondary);
+  padding: 0 14px 6px;
+}
+
+.mac-group-desc {
+  font-size: 11px;
+  color: var(--label-tertiary);
+  padding: 0 14px;
+}
+
+/* Inset hairline divider between rows inside a card. */
+.mac-divider {
+  height: 0.5px;
+  background: var(--separator);
+  margin-left: 14px;
+}
+
+/* ---- macOS switch ---- */
+
+.mac-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--switch-off);
+  transition:
+    background-color 0.22s ease,
+    box-shadow 0.22s ease;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+  border: none;
+}
+
+.mac-switch[data-on="true"] {
+  background: var(--switch-on);
+}
+
+.mac-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mac-switch:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.mac-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 0 1px rgba(0, 0, 0, 0.2);
+  transition: transform 0.22s cubic-bezier(0.3, 0.6, 0.3, 1);
+}
+
+.mac-switch[data-on="true"] .mac-switch-knob {
+  transform: translateX(16px);
+}
+
+/* ---- macOS text field ---- */
+
+.mac-input {
+  width: 100%;
+  font-size: 13px;
+  font-family: var(--font-system);
+  color: var(--label);
+  background: var(--control-bg);
+  border: 0.5px solid var(--control-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  box-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.03) inset;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  appearance: none;
+}
+
+.mac-input::placeholder {
+  color: var(--label-tertiary);
+}
+
+.mac-input:hover:not(:disabled) {
+  border-color: var(--control-border-strong);
+}
+
+.mac-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.mac-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- macOS push button ---- */
+
+.mac-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: var(--font-system);
+  font-weight: 500;
+  border-radius: 6px;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+  border: 0.5px solid transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.mac-btn:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.mac-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mac-btn-sm {
+  font-size: 12px;
+  padding: 2px 10px;
+  min-height: 22px;
+}
+
+.mac-btn-md {
+  font-size: 13px;
+  padding: 4px 14px;
+  min-height: 28px;
+}
+
+.mac-btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.12);
+}
+.mac-btn-primary:not(:disabled):hover {
+  background: var(--accent-hover);
+}
+.mac-btn-primary:not(:disabled):active {
+  background: var(--accent-active);
+}
+
+.mac-btn-secondary {
+  background: var(--control-bg);
+  color: var(--label);
+  border-color: var(--control-border);
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.06);
+}
+.mac-btn-secondary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--control-bg) 80%, var(--fill-strong));
+}
+
+.mac-btn-danger {
+  background: transparent;
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 35%, transparent);
+}
+.mac-btn-danger:not(:disabled):hover {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+
+.mac-btn-ghost {
+  background: transparent;
+  color: var(--label-secondary);
+}
+.mac-btn-ghost:not(:disabled):hover {
+  background: var(--fill);
+  color: var(--label);
+}
+
+/* ---- macOS select (pop-up button) ---- */
+
+.mac-select {
+  font-size: 13px;
+  font-family: var(--font-system);
+  color: var(--label);
+  background: var(--control-bg);
+  border: 0.5px solid var(--control-border);
+  border-radius: 6px;
+  padding: 4px 26px 4px 9px;
+  min-width: 9rem;
+  appearance: none;
+  cursor: default;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.06);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.mac-select:hover:not(:disabled) {
+  border-color: var(--control-border-strong);
+}
+
+.mac-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.mac-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- macOS slider ---- */
+
+.mac-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  cursor: default;
+  outline: none;
+}
+
+.mac-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 1px 2.5px rgba(0, 0, 0, 0.3),
+    0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  cursor: default;
+}
+
+.mac-slider:disabled {
+  opacity: 0.5;
+}
+
+/* ---- keycap ---- */
+
+.mac-kbd {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--control-bg);
+  border: 0.5px solid var(--control-border);
+  border-radius: 5px;
+  box-shadow: 0 1px 0 var(--separator);
+  color: var(--label);
 }

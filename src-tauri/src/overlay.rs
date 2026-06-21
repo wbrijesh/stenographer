@@ -7,8 +7,11 @@
 //! Tiling WMs like Aerospace aggressively re-arrange windows and switch Spaces
 //! out from under apps. To stay visible on the *currently active* Space without
 //! ever stealing focus we:
-//!   * Build a **non-activating floating panel** (`can_become_key_window: false`,
-//!     `is_floating_panel: true`) at `PanelLevel::Status`.
+//!   * Build a **non-activating floating panel** (`is_floating_panel: true`) at
+//!     `PanelLevel::Status`. The panel may become key (`can_become_key_window:
+//!     true`) so the editable transcript can be clicked into and typed — focus
+//!     stays safe because showing uses `orderFrontRegardless:` (never make-key)
+//!     and the `NonactivatingPanel` mask keeps the app from activating on click.
 //!   * Give it a collection behavior of
 //!     `canJoinAllSpaces | fullScreenAuxiliary | stationary | ignoresCycle`,
 //!     so it is present on every Space (hence always on the active one), floats
@@ -74,10 +77,18 @@ const STATE_TRANSCRIBING: &str = "transcribing";
 tauri_panel! {
     panel!(RecordingOverlayPanel {
         config: {
-            // Aerospace HARD requirements: the panel must never become key and
-            // must behave as a floating utility panel so it does not steal focus
-            // or participate in the tiling layout.
-            can_become_key_window: false,
+            // The panel CAN become key so the user can click into the editable
+            // transcript and type corrections. Focus stays safe because:
+            //   * showing the panel uses `order_front_regardless()` (NOT make-key),
+            //     so appearing the overlay never steals focus from the editor;
+            //   * the `NonactivatingPanel` style mask (applied after the swizzle)
+            //     means even when the user CLICKS the overlay to edit, the owning
+            //     app is NOT activated and (with the Aerospace float rule) no
+            //     workspace switch occurs. The panel only becomes key on an
+            //     explicit click into the text field.
+            // `is_floating_panel` keeps it a floating utility panel that does not
+            // participate in the tiling layout.
+            can_become_key_window: true,
             is_floating_panel: true
         }
     })

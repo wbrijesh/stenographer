@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Children, Fragment, isValidElement, type ReactNode } from "react";
 
 interface SectionProps {
   title: string;
@@ -6,20 +6,43 @@ interface SectionProps {
   children: ReactNode;
 }
 
-/** A titled group of settings rows, separated by hairlines. */
+/**
+ * Flatten so conditional `<>...</>` groups contribute their rows individually
+ * (each gets its own inset hairline divider), matching macOS grouped lists.
+ */
+function flattenRows(children: ReactNode): ReactNode[] {
+  const out: ReactNode[] = [];
+  for (const child of Children.toArray(children)) {
+    if (isValidElement(child) && child.type === Fragment) {
+      out.push(
+        ...flattenRows(
+          (child.props as { children?: ReactNode }).children ?? null,
+        ),
+      );
+    } else {
+      out.push(child);
+    }
+  }
+  return out;
+}
+
+/**
+ * A macOS "grouped" settings group: a small secondary group-header label above
+ * an inset rounded-rectangle card whose rows are split by inset hairlines.
+ */
 export function Section({ title, description, children }: SectionProps) {
+  const rows = flattenRows(children);
   return (
-    <section className="space-y-2">
-      <div className="px-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-black/45">
-          {title}
-        </h2>
-        {description && (
-          <p className="mt-0.5 text-xs text-black/45">{description}</p>
-        )}
-      </div>
-      <div className="overflow-hidden rounded-xl border border-black/10 bg-white/70 shadow-sm">
-        <div className="divide-y divide-black/[0.07]">{children}</div>
+    <section>
+      <h2 className="mac-group-header">{title}</h2>
+      {description && <p className="mac-group-desc mb-1.5">{description}</p>}
+      <div className="mac-card">
+        {rows.map((child, i) => (
+          <div key={i}>
+            {i > 0 && <div className="mac-divider" />}
+            {child}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -44,11 +67,13 @@ export function Row({
 }: RowProps) {
   if (stacked) {
     return (
-      <div className={`px-4 py-3 ${disabled ? "opacity-50" : ""}`}>
+      <div className={`px-3.5 py-2.5 ${disabled ? "opacity-50" : ""}`}>
         <div className="mb-2">
-          <h3 className="text-sm font-medium">{title}</h3>
+          <h3 className="text-label text-[13px]">{title}</h3>
           {description && (
-            <p className="mt-0.5 text-xs text-black/50">{description}</p>
+            <p className="text-secondary mt-0.5 text-[11px] leading-snug">
+              {description}
+            </p>
           )}
         </div>
         <div className="w-full">{children}</div>
@@ -58,14 +83,14 @@ export function Row({
 
   return (
     <div
-      className={`flex items-center justify-between gap-4 px-4 py-3 ${
+      className={`flex items-center justify-between gap-4 px-3.5 py-2.5 ${
         disabled ? "opacity-50" : ""
       }`}
     >
       <div className="min-w-0">
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className="text-label text-[13px]">{title}</h3>
         {description && (
-          <p className="mt-0.5 text-xs leading-snug text-black/50">
+          <p className="text-secondary mt-0.5 text-[11px] leading-snug">
             {description}
           </p>
         )}

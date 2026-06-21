@@ -29,24 +29,20 @@ export function ModelsSettings({ settings }: Props) {
   const selectedModel = settings.selected_model ?? null;
 
   return (
-    <div className="space-y-4">
-      <div className="px-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-black/45">
-          Speech models
-        </h2>
-        <p className="mt-0.5 text-xs text-black/45">
-          Download a model and pick the one to use for transcription.
-        </p>
-      </div>
+    <div className="space-y-2">
+      <h2 className="mac-group-header">Speech models</h2>
+      <p className="mac-group-desc !pb-1">
+        Download a model and pick the one to use for transcription.
+      </p>
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/[0.06] px-3 py-2 text-xs text-red-700">
+        <div className="text-red rounded-lg border border-[color-mix(in_srgb,var(--red)_30%,transparent)] bg-[color-mix(in_srgb,var(--red)_8%,transparent)] px-3 py-2 text-[12px]">
           {error}
         </div>
       )}
 
       {loading && models.length === 0 ? (
-        <p className="px-1 text-sm text-black/50">Loading models…</p>
+        <p className="text-secondary text-[13px]">Loading models…</p>
       ) : (
         <div className="space-y-3">
           {models.map((model) => (

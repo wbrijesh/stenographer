@@ -12,10 +12,15 @@ export function SidebarItem({ label, icon, active, onClick }: SidebarItemProps) 
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
+      style={
         active
-          ? "bg-blue-500 text-white shadow-sm"
-          : "text-black/70 hover:bg-black/[0.06]"
+          ? { background: "var(--accent)", color: "var(--accent-fg)" }
+          : undefined
+      }
+      className={`flex h-7 w-full items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors ${
+        active
+          ? "font-medium shadow-sm"
+          : "text-label hover:bg-[var(--sidebar-hover)]"
       }`}
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center">

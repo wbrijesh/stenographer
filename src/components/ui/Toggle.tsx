@@ -5,7 +5,7 @@ interface ToggleProps {
   "aria-label"?: string;
 }
 
-/** macOS-style switch. */
+/** macOS-style switch (pill track, white knob, green when on). */
 export function Toggle({
   checked,
   onChange,
@@ -19,16 +19,11 @@ export function Toggle({
       aria-checked={checked}
       aria-label={rest["aria-label"]}
       disabled={disabled}
+      data-on={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${
-        checked ? "bg-blue-500" : "bg-black/15"
-      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+      className="mac-switch"
     >
-      <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform duration-200 ${
-          checked ? "translate-x-[18px]" : "translate-x-0.5"
-        }`}
-      />
+      <span className="mac-switch-knob" />
     </button>
   );
 }

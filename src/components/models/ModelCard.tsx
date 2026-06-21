@@ -39,23 +39,35 @@ export function ModelCard({
 
   return (
     <div
-      className={`rounded-xl border p-4 shadow-sm transition-colors ${
+      className="mac-card p-4 transition-colors"
+      style={
         isSelected
-          ? "border-blue-500/60 bg-blue-500/[0.04] ring-1 ring-blue-500/30"
-          : "border-black/10 bg-white/70"
-      }`}
+          ? {
+              borderColor: "color-mix(in srgb, var(--accent) 55%, transparent)",
+              background: "color-mix(in srgb, var(--accent) 7%, var(--card-bg))",
+            }
+          : undefined
+      }
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold">{model.name}</h3>
+            <h3 className="text-label text-[13px] font-semibold">
+              {model.name}
+            </h3>
             {model.is_recommended && (
-              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+              <span className="text-accent rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                 Recommended
               </span>
             )}
             {isSelected && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                style={{
+                  background: "var(--accent)",
+                  color: "var(--accent-fg)",
+                }}
+              >
                 <span className="h-3 w-3">
                   <CheckIcon />
                 </span>
@@ -63,11 +75,11 @@ export function ModelCard({
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs leading-snug text-black/55">
+          <p className="text-secondary mt-1 text-[12px] leading-snug">
             {model.description}
           </p>
         </div>
-        <span className="shrink-0 rounded-md bg-black/[0.05] px-2 py-1 text-xs font-medium tabular-nums text-black/60">
+        <span className="text-secondary shrink-0 rounded-md bg-[var(--fill)] px-2 py-1 text-[12px] font-medium tabular-nums">
           {formatSize(model.size_mb)}
         </span>
       </div>
@@ -75,11 +87,11 @@ export function ModelCard({
       <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1.5">
         <ScoreBar label="Accuracy" score={toPips(model.accuracy_score)} />
         <ScoreBar label="Speed" score={toPips(model.speed_score)} />
-        <span className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-black/45">
+        <span className="text-tertiary rounded bg-[var(--fill)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
           {model.engine_type}
         </span>
         {model.supports_translation && (
-          <span className="text-[10px] font-medium uppercase tracking-wide text-black/40">
+          <span className="text-tertiary text-[10px] font-medium uppercase tracking-wide">
             Translation
           </span>
         )}
@@ -88,7 +100,7 @@ export function ModelCard({
       {downloading && (
         <div className="mt-3 space-y-1.5">
           <ProgressBar percentage={Math.round(progress?.percentage ?? 0)} />
-          <div className="flex items-center justify-between text-[11px] tabular-nums text-black/50">
+          <div className="text-secondary flex items-center justify-between text-[11px] tabular-nums">
             <span>{Math.round(progress?.percentage ?? 0)}%</span>
             <span>
               {speed && speed > 0 ? `${speed.toFixed(1)} MB/s` : "Downloading…"}

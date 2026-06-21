@@ -78,7 +78,7 @@ export function AccessibilityStep({
             <GrantedBadge />
           </div>
           {initError && (
-            <p className="text-xs leading-relaxed text-amber-600">
+            <p className="text-amber text-[12px] leading-relaxed">
               Permission granted, but setup hit a snag: {initError}
             </p>
           )}
@@ -96,9 +96,9 @@ export function AccessibilityStep({
               : "Grant accessibility access"}
           </Button>
           {stuck && (
-            <p className="text-xs leading-relaxed text-black/50">
+            <p className="text-secondary text-[12px] leading-relaxed">
               Still waiting. Open{" "}
-              <span className="font-medium text-black/70">
+              <span className="text-label font-medium">
                 System Settings → Privacy &amp; Security → Accessibility
               </span>{" "}
               and enable Stenographer, then try again.
@@ -106,7 +106,7 @@ export function AccessibilityStep({
           )}
           <button
             type="button"
-            className="mx-auto flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            className="text-accent mx-auto flex items-center gap-1 text-[12px] hover:underline"
             onClick={() => void request()}
           >
             <span className="h-3.5 w-3.5">

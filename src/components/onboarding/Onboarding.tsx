@@ -108,31 +108,37 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background text-text">
-      {/* Progress dots */}
-      <div className="flex shrink-0 items-center justify-center gap-1.5 pt-6">
+    <div className="flex h-screen w-screen flex-col text-label">
+      {/* Progress dots (clears the titlebar region) */}
+      <div className="flex shrink-0 items-center justify-center gap-1.5 pt-9">
         {ORDER.map((id, i) => (
           <span
             key={id}
-            className={`h-1.5 rounded-full transition-all ${
-              i === index
-                ? "w-6 bg-blue-500"
-                : i < index
-                  ? "w-1.5 bg-blue-500/40"
-                  : "w-1.5 bg-black/10"
-            }`}
+            className="h-1.5 rounded-full transition-all"
+            style={{
+              width: i === index ? 24 : 6,
+              background:
+                i === index
+                  ? "var(--accent)"
+                  : i < index
+                    ? "color-mix(in srgb, var(--accent) 40%, transparent)"
+                    : "var(--fill-strong)",
+            }}
           />
         ))}
       </div>
 
       {/* Step body */}
-      <div className="flex flex-1 items-center justify-center overflow-y-auto px-6">
+      <div className="mac-scroll flex flex-1 items-center justify-center overflow-y-auto px-6">
         <div className="w-full max-w-md py-8">{renderStep()}</div>
       </div>
 
       {/* Footer nav (hidden on the final step — it has its own CTA) */}
       {step !== "done" && (
-        <div className="flex shrink-0 items-center justify-between border-t border-black/[0.06] px-6 py-4">
+        <div
+          className="flex shrink-0 items-center justify-between px-6 py-4"
+          style={{ borderTop: "0.5px solid var(--separator)" }}
+        >
           <Button
             variant="ghost"
             onClick={goBack}

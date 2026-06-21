@@ -71,6 +71,7 @@ rdev = { git = "https://github.com/rustdesk-org/rdev" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+window-vibrancy = "0.6"
 transcribe-rs = { version = "0.3.8", features = ["whisper-cpp", "onnx", "whisper-metal"] }
 
 [dev-dependencies]
