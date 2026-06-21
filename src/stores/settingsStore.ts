@@ -44,6 +44,9 @@ interface SettingsState {
   setAudioFeedbackVolume: (v: number) => Promise<void>;
   setMuteWhileRecording: (v: boolean) => Promise<void>;
   setCleanupEnabled: (v: boolean) => Promise<void>;
+  setLlmBaseUrl: (v: string) => Promise<void>;
+  setLlmApiKey: (v: string) => Promise<void>;
+  setLlmModel: (v: string) => Promise<void>;
 
   // Models
   setSelectedModel: (v: string | null) => Promise<void>;
@@ -152,6 +155,10 @@ export const useSettingsStore = create<SettingsState>()(
         update("mute_while_recording", v, commands.changeMuteWhileRecording),
       setCleanupEnabled: (v) =>
         update("cleanup_enabled", v, commands.changeCleanupEnabled),
+      setLlmBaseUrl: (v) =>
+        update("llm_base_url", v, commands.changeLlmBaseUrl),
+      setLlmApiKey: (v) => update("llm_api_key", v, commands.changeLlmApiKey),
+      setLlmModel: (v) => update("llm_model", v, commands.changeLlmModel),
 
       // Models
       setSelectedModel: (v) =>

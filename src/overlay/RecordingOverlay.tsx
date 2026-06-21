@@ -6,7 +6,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
  *
  * Rendered inside a transparent, non-activating NSPanel (440x132 logical pts).
  * It is a RECTANGLE: a scrollable live-transcript area on top and a control row
- * (mic / waveform / cancel) along the bottom.
+ * (mic indicator / waveform / cancel) along the bottom.
  *
  * It is purely event-driven from the Rust side:
  *   - `show-overlay`       (payload: "recording" | "transcribing") -> set state.
@@ -18,15 +18,13 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
  *                          amplitude that ripples out) for robustness.
  *   - `partial-transcript` (payload: bare string, the transcript-so-far which
  *                          grows over time) -> live text, auto-scrolled to bottom.
- *   - `recording-paused`   (payload: boolean) -> reflects a paused look on the
- *                          mic and flattens the waveform.
  *
  * Layout (top -> bottom) at 440x132:
  *   [  scrollable live transcript (auto-scrolled to newest)  ]
- *   [ mic(toggle pause)  compact waveform        cancel ✕    ]
+ *   [ mic(indicator)  compact waveform           cancel ✕    ]
  *
- * The mic button emits `overlay-toggle-pause`; the cancel button emits
- * `overlay-cancel` for the backend to handle.
+ * The mic glyph is a static recording/transcribing indicator (not a button).
+ * The cancel button emits `overlay-cancel` for the backend to handle.
  */
 
 type OverlayState = "recording" | "transcribing";
@@ -60,8 +58,7 @@ const STRINGS = {
   listening: "Listening…",
   transcribing: "Transcribing…",
   cancelLabel: "Cancel recording",
-  pauseLabel: "Pause",
-  resumeLabel: "Resume",
+  recordingLabel: "Recording",
 } as const;
 
 const RecordingOverlay: React.FC = () => {
@@ -78,8 +75,6 @@ const RecordingOverlay: React.FC = () => {
   );
   // Live transcript-so-far. Empty until the first `partial-transcript` arrives.
   const [transcript, setTranscript] = useState<string>("");
-  // Whether recording is currently paused (mic look + flat waveform).
-  const [paused, setPaused] = useState<boolean>(false);
   const smoothedRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -89,10 +84,9 @@ const RecordingOverlay: React.FC = () => {
     listen<OverlayState>("show-overlay", (event) => {
       const next = event.payload ?? "recording";
       // A fresh recording session: clear any stale transcript so old text from
-      // the previous dictation does not linger, and reset the paused look.
+      // the previous dictation does not linger.
       if (next === "recording") {
         setTranscript("");
-        setPaused(false);
       }
       setState(next);
     }).then((u) => unlisteners.push(u));
@@ -108,11 +102,6 @@ const RecordingOverlay: React.FC = () => {
     // Live transcript text (grows over time). Bare string payload.
     listen<string>("partial-transcript", (event) => {
       setTranscript(event.payload ?? "");
-    }).then((u) => unlisteners.push(u));
-
-    // Paused state (bare boolean payload).
-    listen<boolean>("recording-paused", (event) => {
-      setPaused(event.payload === true);
     }).then((u) => unlisteners.push(u));
 
     listen<MicLevelPayload>("mic-level", (event) => {
@@ -165,13 +154,7 @@ const RecordingOverlay: React.FC = () => {
     void emit("overlay-cancel");
   };
 
-  const onTogglePause = (): void => {
-    void emit("overlay-toggle-pause");
-  };
-
   const hasText = transcript.trim().length > 0;
-  // When paused, flatten the waveform to a calm, idle row.
-  const displayBars = paused ? Array(COMPACT_BAR_COUNT).fill(0) : bars;
 
   // Empty-state placeholder depends on phase: while recording we are listening,
   // while transcribing we are finishing up.
@@ -190,28 +173,23 @@ const RecordingOverlay: React.FC = () => {
 
       <div className="overlay-controls">
         <div className="overlay-controls-left">
-          <button
-            type="button"
-            className={`mic-btn${paused ? " mic-btn--paused" : ""}`}
-            aria-label={paused ? STRINGS.resumeLabel : STRINGS.pauseLabel}
-            title={paused ? STRINGS.resumeLabel : STRINGS.pauseLabel}
-            aria-pressed={paused}
-            onClick={onTogglePause}
-          >
-            {paused ? <PauseGlyph /> : <MicGlyph />}
-          </button>
-
           <span
-            className={`waveform${paused ? " waveform--paused" : ""}`}
-            aria-hidden
+            className="mic-indicator"
+            role="img"
+            aria-label={STRINGS.recordingLabel}
+            title={STRINGS.recordingLabel}
           >
-            {displayBars.map((v, i) => (
+            <MicGlyph />
+          </span>
+
+          <span className="waveform" aria-hidden>
+            {bars.map((v, i) => (
               <span
                 key={i}
                 className="wave-bar"
                 style={{
                   height: `${4 + Math.pow(v, 0.7) * 14}px`,
-                  opacity: paused ? 0.3 : 0.35 + Math.min(0.65, v * 1.4),
+                  opacity: 0.35 + Math.min(0.65, v * 1.4),
                 }}
               />
             ))}
@@ -241,13 +219,6 @@ const MicGlyph: React.FC = () => (
       strokeWidth="2"
       strokeLinecap="round"
     />
-  </svg>
-);
-
-const PauseGlyph: React.FC = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <rect x="6" y="5" width="4" height="14" rx="1.5" />
-    <rect x="14" y="5" width="4" height="14" rx="1.5" />
   </svg>
 );
 

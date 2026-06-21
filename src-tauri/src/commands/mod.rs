@@ -254,17 +254,17 @@ pub fn change_append_trailing_space(
     Ok(())
 }
 
-/// Whether on-device transcription cleanup (Apple FoundationModels) is
-/// available on this machine. The frontend uses this to decide whether to SHOW
-/// the "Clean up transcription" toggle at all.
+/// Whether a hosted cleanup model is configured (i.e. an API key is set). The
+/// frontend uses this to indicate whether the "Clean up transcription" toggle
+/// will actually take effect.
 #[tauri::command]
 #[specta::specta]
-pub fn is_cleanup_available() -> bool {
-    crate::llm::is_available()
+pub fn is_cleanup_configured(app: AppHandle) -> bool {
+    crate::llm::is_configured(&app)
 }
 
 /// Validate + persist + emit the cleanup-enabled toggle. Only effective when
-/// `is_cleanup_available()` is true.
+/// `is_cleanup_configured()` is true.
 #[tauri::command]
 #[specta::specta]
 pub fn change_cleanup_enabled(app: AppHandle, cleanup_enabled: bool) -> Result<(), String> {
@@ -274,6 +274,50 @@ pub fn change_cleanup_enabled(app: AppHandle, cleanup_enabled: bool) -> Result<(
     app.emit("settings-changed", &settings)
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Validate + persist + emit the LLM base URL.
+#[tauri::command]
+#[specta::specta]
+pub fn change_llm_base_url(app: AppHandle, llm_base_url: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.llm_base_url = llm_base_url;
+    write_settings(&app, &settings);
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Validate + persist + emit the LLM API key.
+#[tauri::command]
+#[specta::specta]
+pub fn change_llm_api_key(app: AppHandle, llm_api_key: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.llm_api_key = llm_api_key;
+    write_settings(&app, &settings);
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Validate + persist + emit the LLM model name.
+#[tauri::command]
+#[specta::specta]
+pub fn change_llm_model(app: AppHandle, llm_model: String) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.llm_model = llm_model;
+    write_settings(&app, &settings);
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Verify the configured hosted cleanup model by cleaning a tiny test input.
+/// Returns the cleaned output on success, or an error message on failure.
+#[tauri::command]
+#[specta::specta]
+pub fn test_llm_connection(app: AppHandle) -> Result<String, String> {
+    crate::llm::test_connection(&app)
 }
 
 /// Validate + persist + emit the start-hidden toggle.

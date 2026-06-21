@@ -80,10 +80,16 @@ pub struct AppSettings {
     #[serde(default = "default_append_trailing_space")]
     pub append_trailing_space: bool,
 
-    // on-device cleanup (Apple FoundationModels). On by default, but only
-    // effective when the system language model is actually available.
+    // transcription cleanup via a hosted, OpenAI-compatible LLM. On by default,
+    // but only effective when an API key is configured below.
     #[serde(default = "default_cleanup_enabled")]
     pub cleanup_enabled: bool,
+    #[serde(default = "default_llm_base_url")]
+    pub llm_base_url: String,
+    #[serde(default = "default_llm_api_key")]
+    pub llm_api_key: String,
+    #[serde(default = "default_llm_model")]
+    pub llm_model: String,
 
     // overlay / app
     #[serde(default = "default_overlay_enabled")]
@@ -136,6 +142,15 @@ fn default_append_trailing_space() -> bool {
 fn default_cleanup_enabled() -> bool {
     true
 }
+fn default_llm_base_url() -> String {
+    "https://api.openai.com/v1".to_string()
+}
+fn default_llm_api_key() -> String {
+    String::new()
+}
+fn default_llm_model() -> String {
+    "gpt-5-nano".to_string()
+}
 fn default_overlay_enabled() -> bool {
     true
 }
@@ -168,6 +183,9 @@ pub fn get_default_settings() -> AppSettings {
         auto_submit_key: AutoSubmitKey::default(),
         append_trailing_space: default_append_trailing_space(),
         cleanup_enabled: default_cleanup_enabled(),
+        llm_base_url: default_llm_base_url(),
+        llm_api_key: default_llm_api_key(),
+        llm_model: default_llm_model(),
         overlay_enabled: default_overlay_enabled(),
         start_hidden: default_start_hidden(),
         autostart_enabled: default_autostart_enabled(),

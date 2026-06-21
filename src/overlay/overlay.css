@@ -123,43 +123,16 @@ body {
   gap: 10px;
 }
 
-/* --- Mic / pause toggle (bottom-left) --- */
-.mic-btn {
+/* --- Mic recording indicator (bottom-left, static) --- */
+.mic-indicator {
   width: 28px;
   height: 28px;
-  padding: 0;
-  border: none;
   border-radius: 50%;
   background: rgba(255, 93, 115, 0.16);
   color: #ff5d73;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease-out,
-    color 140ms ease-out,
-    transform 100ms ease-out;
-}
-
-.mic-btn:hover {
-  background: rgba(255, 93, 115, 0.26);
-  transform: scale(1.06);
-}
-
-.mic-btn:active {
-  transform: scale(0.94);
-}
-
-/* Paused: calm, dimmed look. */
-.mic-btn--paused {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.mic-btn--paused:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.85);
 }
 
 /* --- Waveform --- */
@@ -178,10 +151,6 @@ body {
   transition:
     height 70ms ease-out,
     opacity 120ms ease-out;
-}
-
-.waveform--paused .wave-bar {
-  background: rgba(255, 255, 255, 0.35);
 }
 
 @keyframes pulse {

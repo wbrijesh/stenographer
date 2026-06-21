@@ -157,16 +157,17 @@ fn record_stop(app: AppHandle) {
             let transcription_ms = transcribe_start.elapsed().as_millis() as u64;
             match transcribe_result {
                 Ok(text) if !text.trim().is_empty() => {
-                    // On-device cleanup (Apple FoundationModels). Only when the
-                    // user has it enabled AND the model is available; falls back
-                    // to the raw text on any cleanup failure. The overlay keeps
-                    // showing the transcribing state during this ~1-2s.
+                    // Hosted, OpenAI-compatible cleanup. Only when the user has
+                    // it enabled AND an API key is configured; falls back to the
+                    // raw text on any cleanup failure. The overlay keeps showing
+                    // the transcribing state during this ~1-2s.
                     let mut cleanup_ms: Option<u64> = None;
                     let to_paste = if crate::settings::get_settings(&app).cleanup_enabled
-                        && crate::llm::is_available()
+                        && crate::llm::is_configured(&app)
                     {
                         let cleanup_start = std::time::Instant::now();
-                        let cleaned = crate::llm::cleanup(&text).unwrap_or_else(|| text.clone());
+                        let cleaned =
+                            crate::llm::cleanup(&app, &text).unwrap_or_else(|| text.clone());
                         cleanup_ms = Some(cleanup_start.elapsed().as_millis() as u64);
                         log::info!(
                             "cleanup: raw {} chars -> cleaned {} chars",
@@ -244,28 +245,6 @@ pub fn install_event_listeners(app: &AppHandle) {
         if let Some(coordinator) = overlay_cancel_app.try_state::<Arc<Coordinator>>() {
             coordinator.submit(TriggerInput::Cancel);
         }
-    });
-
-    // Overlay mic-icon click → toggle pause/resume of the active recording.
-    // Each event flips the paused state (only while recording), then broadcasts
-    // the new paused state as `recording-paused` so the overlay can swap its mic
-    // icon. Emitted to the overlay window specifically AND app-wide.
-    let pause_app = app.clone();
-    app.listen_any("overlay-toggle-pause", move |_| {
-        use tauri::Emitter;
-        let audio = pause_app.state::<Arc<AudioRecordingManager>>();
-        if !audio.is_recording() {
-            return;
-        }
-        let now_paused = if audio.is_paused() {
-            audio.resume_recording();
-            false
-        } else {
-            audio.pause_recording();
-            true
-        };
-        let _ = pause_app.emit_to("recording_overlay", "recording-paused", now_paused);
-        let _ = pause_app.emit("recording-paused", now_paused);
     });
 
     // Tray model select → switch active model + reload.
