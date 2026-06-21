@@ -1,6 +1,7 @@
 import { Row, Section, Slider, Toggle } from "@/components/ui";
 import type { AppSettings } from "@/bindings";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useCleanupAvailable } from "@/hooks/useCleanupAvailable";
 import { ShortcutRecorder } from "@/components/ShortcutRecorder";
 
 interface Props {
@@ -17,9 +18,11 @@ export function GeneralSettings({ settings }: Props) {
     setAudioFeedback,
     setAudioFeedbackVolume,
     setMuteWhileRecording,
+    setCleanupEnabled,
   } = useSettingsStore();
 
   const audioFeedback = settings.audio_feedback ?? false;
+  const cleanupAvailable = useCleanupAvailable();
 
   return (
     <div className="space-y-6">
@@ -44,6 +47,24 @@ export function GeneralSettings({ settings }: Props) {
           />
         </Row>
       </Section>
+
+      {cleanupAvailable && (
+        <Section
+          title="Transcription"
+          description="How transcribed text is processed before pasting."
+        >
+          <Row
+            title="Clean up transcription with AI"
+            description="Uses Apple's on-device model to fix punctuation, capitalization, and filler words before pasting. Runs entirely on-device."
+          >
+            <Toggle
+              aria-label="Clean up transcription with AI"
+              checked={settings.cleanup_enabled ?? true}
+              onChange={(v) => void setCleanupEnabled(v)}
+            />
+          </Row>
+        </Section>
+      )}
 
       <Section title="Appearance & startup">
         <Row

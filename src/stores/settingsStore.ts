@@ -43,6 +43,7 @@ interface SettingsState {
   setAudioFeedback: (v: boolean) => Promise<void>;
   setAudioFeedbackVolume: (v: number) => Promise<void>;
   setMuteWhileRecording: (v: boolean) => Promise<void>;
+  setCleanupEnabled: (v: boolean) => Promise<void>;
 
   // Models
   setSelectedModel: (v: string | null) => Promise<void>;
@@ -149,6 +150,8 @@ export const useSettingsStore = create<SettingsState>()(
         update("audio_feedback_volume", v, commands.changeAudioFeedbackVolume),
       setMuteWhileRecording: (v) =>
         update("mute_while_recording", v, commands.changeMuteWhileRecording),
+      setCleanupEnabled: (v) =>
+        update("cleanup_enabled", v, commands.changeCleanupEnabled),
 
       // Models
       setSelectedModel: (v) =>
